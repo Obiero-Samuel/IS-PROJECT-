@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "db:migrate": "node db/migrate.js migrate",
+    "db:seed": "node db/migrate.js seed",
+    "db:setup": "node db/migrate.js all"
   },
   "keywords": [],
   "author": "",
