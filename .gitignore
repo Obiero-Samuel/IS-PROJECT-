@@ -15,6 +15,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Uploaded files (keep directory, ignore contents)
+server/uploads/*
+!server/uploads/.gitkeep
+
 # Local env files
 .env
 .env.local
