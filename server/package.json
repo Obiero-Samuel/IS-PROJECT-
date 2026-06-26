@@ -6,9 +6,14 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+<<<<<<< HEAD
     "db:migrate": "node db/migrate.js migrate",
     "db:seed": "node db/migrate.js seed",
     "db:setup": "node db/migrate.js all"
+=======
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js"
+>>>>>>> ef34411 (feat: initialize server project with dependencies and database migration script)
   },
   "keywords": [],
   "author": "",
