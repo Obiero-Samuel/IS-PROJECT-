@@ -1,0 +1,269 @@
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const db = require('../config/db');
+
+// ---------------------------------------------------------------------------
+// Tracking number generator: CP-YYYYMMDD-XXXX
+// ---------------------------------------------------------------------------
+const generateTrackingNumber = () => {
+  const date = new Date();
+  const datePart = date.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  const randomPart = uuidv4().replace(/-/g, '').toUpperCase().slice(0, 4);
+  return `CP-${datePart}-${randomPart}`;
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/reports  (auth required)
+// Accepts multipart/form-data
+// ---------------------------------------------------------------------------
+const createReport = async (req, res, next) => {
+  try {
+    const { title, description, category_id, latitude, longitude, location_address } = req.body;
+
+    if (!title || !description || !category_id) {
+      return res.status(400).json({ error: { message: 'title, description, and category_id are required.' } });
+    }
+
+    // Verify category exists
+    const catCheck = await db.query('SELECT id FROM categories WHERE id = $1', [category_id]);
+    if (catCheck.rows.length === 0) {
+      return res.status(400).json({ error: { message: 'Invalid category_id.' } });
+    }
+
+    // Build media_url if a file was uploaded
+    const media_url = req.file
+      ? `/uploads/${req.file.filename}`
+      : null;
+
+    // Generate unique tracking number (retry on collision)
+    let tracking_number;
+    let attempts = 0;
+    while (attempts < 5) {
+      tracking_number = generateTrackingNumber();
+      const collision = await db.query(
+        'SELECT id FROM reports WHERE tracking_number = $1',
+        [tracking_number]
+      );
+      if (collision.rows.length === 0) break;
+      attempts++;
+    }
+
+    const result = await db.query(
+      `INSERT INTO reports
+         (user_id, category_id, title, description, latitude, longitude,
+          location_address, media_url, tracking_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, tracking_number, title, status, created_at`,
+      [
+        req.user.id,
+        category_id,
+        title,
+        description,
+        latitude || null,
+        longitude || null,
+        location_address || null,
+        media_url,
+        tracking_number
+      ]
+    );
+
+    res.status(201).json({
+      message: 'Report submitted successfully.',
+      report: result.rows[0]
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/reports  (public)
+// Query params: ?category_id=&status=&page=1&limit=10
+// ---------------------------------------------------------------------------
+const getReports = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 10);
+    const offset = (page - 1) * limit;
+
+    const conditions = [];
+    const params = [];
+
+    if (req.query.category_id) {
+      params.push(req.query.category_id);
+      conditions.push(`r.category_id = $${params.length}`);
+    }
+    if (req.query.status) {
+      params.push(req.query.status);
+      conditions.push(`r.status = $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    params.push(limit, offset);
+    const dataQuery = `
+      SELECT
+        r.id, r.tracking_number, r.title, r.description,
+        r.latitude, r.longitude, r.location_address,
+        r.status, r.media_url, r.created_at,
+        c.name AS category_name,
+        u.username AS submitted_by,
+        COUNT(uv.report_id)::int AS upvote_count
+      FROM reports r
+      LEFT JOIN categories c ON c.id = r.category_id
+      LEFT JOIN users u ON u.id = r.user_id
+      LEFT JOIN upvotes uv ON uv.report_id = r.id
+      ${whereClause}
+      GROUP BY r.id, c.name, u.username
+      ORDER BY r.created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+
+    // Count query for pagination metadata
+    const countParams = params.slice(0, params.length - 2);
+    const countQuery = `
+      SELECT COUNT(*) FROM reports r ${whereClause}
+    `;
+
+    const [dataResult, countResult] = await Promise.all([
+      db.query(dataQuery, params),
+      db.query(countQuery, countParams)
+    ]);
+
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      reports: dataResult.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/mine  (auth required)
+// ---------------------------------------------------------------------------
+const getMyReports = async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         r.id, r.tracking_number, r.title, r.description,
+         r.latitude, r.longitude, r.location_address,
+         r.status, r.media_url, r.created_at,
+         c.name AS category_name,
+         COUNT(uv.report_id)::int AS upvote_count
+       FROM reports r
+       LEFT JOIN categories c ON c.id = r.category_id
+       LEFT JOIN upvotes uv ON uv.report_id = r.id
+       WHERE r.user_id = $1
+       GROUP BY r.id, c.name
+       ORDER BY r.created_at DESC`,
+      [req.user.id]
+    );
+
+    res.json({ reports: result.rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/:id  (public)
+// ---------------------------------------------------------------------------
+const getReportById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      `SELECT
+         r.id, r.tracking_number, r.title, r.description,
+         r.latitude, r.longitude, r.location_address,
+         r.status, r.media_url, r.created_at, r.updated_at,
+         c.name AS category_name,
+         u.username AS submitted_by,
+         COUNT(uv.report_id)::int AS upvote_count
+       FROM reports r
+       LEFT JOIN categories c ON c.id = r.category_id
+       LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN upvotes uv ON uv.report_id = r.id
+       WHERE r.id = $1
+       GROUP BY r.id, c.name, u.username`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Report not found.' } });
+    }
+
+    res.json({ report: result.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/reports/:id/upvote  (auth required) — toggles upvote
+// ---------------------------------------------------------------------------
+const upvoteReport = async (req, res, next) => {
+  try {
+    const reportId = parseInt(req.params.id);
+    const userId = req.user.id;
+
+    // Check report exists
+    const reportCheck = await db.query('SELECT id FROM reports WHERE id = $1', [reportId]);
+    if (reportCheck.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Report not found.' } });
+    }
+
+    // Check if already upvoted
+    const existing = await db.query(
+      'SELECT * FROM upvotes WHERE user_id = $1 AND report_id = $2',
+      [userId, reportId]
+    );
+
+    let action;
+    if (existing.rows.length > 0) {
+      // Toggle off — remove upvote
+      await db.query(
+        'DELETE FROM upvotes WHERE user_id = $1 AND report_id = $2',
+        [userId, reportId]
+      );
+      action = 'removed';
+    } else {
+      // Toggle on — add upvote
+      await db.query(
+        'INSERT INTO upvotes (user_id, report_id) VALUES ($1, $2)',
+        [userId, reportId]
+      );
+      action = 'added';
+    }
+
+    // Return updated upvote count
+    const countResult = await db.query(
+      'SELECT COUNT(*)::int AS upvote_count FROM upvotes WHERE report_id = $1',
+      [reportId]
+    );
+
+    res.json({
+      message: `Upvote ${action}.`,
+      upvoted: action === 'added',
+      upvote_count: countResult.rows[0].upvote_count
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  createReport,
+  getReports,
+  getMyReports,
+  getReportById,
+  upvoteReport
+};
