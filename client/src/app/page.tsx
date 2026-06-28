@@ -1,5 +1,6 @@
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
+import styles from "./page.module.css";
 
 export default function Home() {
   return (
@@ -8,7 +9,7 @@ export default function Home() {
       <main className="main">
         <div className="container stack">
           <section className="card stack">
-            <h1 className="title">Civic Issues — Resident Portal</h1>
+            <h1 className="title">Civic Issues - Resident Portal</h1>
             <p className="subtitle">
               Report issues, track progress, and support community priorities through upvotes.
             </p>
@@ -37,6 +38,36 @@ export default function Home() {
                 <Link href="/reports" className="ghost">Public reports + upvote</Link>
               </div>
             </article>
+          </section>
+
+          <section className={styles.page}>
+            <div className={styles.main}>
+              <div className={styles.hero}>
+                <p className={styles.badge}>IS PROJECT CONTROL CENTER</p>
+                <h1>Partner B Dashboards</h1>
+                <p>
+                  Open a role-specific workspace for officers, administrators, or summary analytics.
+                  Enter your JWT token on each page to load protected data.
+                </p>
+              </div>
+
+              <div className={styles.cards}>
+                <Link className={styles.card} href="/officer">
+                  <h2>Officer Dashboard</h2>
+                  <p>Assigned reports, quick status updates, and resolution notes.</p>
+                </Link>
+
+                <Link className={styles.card} href="/admin">
+                  <h2>Admin Panel</h2>
+                  <p>Manage users, wards, authorities, and categories from one place.</p>
+                </Link>
+
+                <Link className={styles.card} href="/analytics">
+                  <h2>Analytics Dashboard</h2>
+                  <p>Summary-report generation and trend snapshots by authority.</p>
+                </Link>
+              </div>
+            </div>
           </section>
         </div>
       </main>

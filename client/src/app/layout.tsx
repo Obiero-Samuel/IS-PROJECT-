@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, Source_Code_Pro } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const sourceCodePro = Source_Code_Pro({
+  variable: "--font-source-code",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "IS Project — Civic Reports",
-  description: "Resident-facing issue reporting and tracking portal",
+  title: "IS Project — Civic Reports & Dashboards",
+  description: "Resident portal with officer, admin, and analytics dashboards",
 };
 
 export default function RootLayout({
@@ -24,10 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>
-        {children}
-      </body>
+    <html lang="en" className={`${spaceGrotesk.variable} ${sourceCodePro.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }
