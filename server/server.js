@@ -7,6 +7,11 @@ require('dotenv').config();
 const db = require('./config/db');
 const authRoutes = require('./routes/auth');
 const reportRoutes = require('./routes/reports');
+const authorityRoutes = require('./routes/authority');
+const adminRoutes = require('./routes/admin');
+const summaryRoutes = require('./routes/summary');
+const cron = require('node-cron');
+const { checkOverdueEscalations } = require('./jobs/escalationOverdueJob');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,6 +58,20 @@ app.get('/api/health', async (req, res, next) => {
 // Feature routers
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/authority', authorityRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/summary', summaryRoutes);
+
+// Manual trigger for cron job (admin only, for testing)
+const { verifyToken, requireRole } = require('./middleware/auth');
+app.post('/api/admin/jobs/escalation-overdue', verifyToken, requireRole('admin'), async (req, res, next) => {
+  try {
+    const count = await checkOverdueEscalations();
+    res.json({ message: 'Overdue check completed manually', updated_count: count });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ─── Global Error Handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -74,6 +93,12 @@ const startServer = async () => {
   try {
     await db.query('SELECT 1');
     console.log('✅ Connected to PostgreSQL:', process.env.DB_NAME || 'is_project_db');
+
+    // Schedule weekly cron job (Every Monday at 00:00)
+    cron.schedule('0 0 * * 1', () => {
+      checkOverdueEscalations().catch(console.error);
+    });
+    console.log('⏱️  Escalation cron job scheduled (Weekly)');
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

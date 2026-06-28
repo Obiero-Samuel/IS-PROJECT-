@@ -1,0 +1,38 @@
+-- =============================================================
+-- Migration 010: Create summary_reports table
+-- Owner: Partner B
+-- Description: Periodic aggregated reports per ward/authority
+-- =============================================================
+
+CREATE TYPE IF NOT EXISTS report_period AS ENUM ('monthly', 'quarterly', 'annual');
+
+CREATE TABLE IF NOT EXISTS summary_reports (
+  id                    SERIAL PRIMARY KEY,
+  authority_id          INT NOT NULL REFERENCES authorities(id) ON DELETE CASCADE,
+  ward_id               INT REFERENCES wards(id) ON DELETE SET NULL,  -- NULL = entire jurisdiction
+  report_period         report_period NOT NULL DEFAULT 'monthly',
+  period_start          DATE NOT NULL,
+  period_end            DATE NOT NULL,
+  total_issues          INT NOT NULL DEFAULT 0,
+  open_issues           INT NOT NULL DEFAULT 0,
+  resolved_issues       INT NOT NULL DEFAULT 0,
+  pending_issues        INT NOT NULL DEFAULT 0,
+  escalated_issues      INT NOT NULL DEFAULT 0,
+  avg_resolution_days   NUMERIC(6,2),
+  top_category          VARCHAR(100),
+  report_notes          TEXT,
+  generated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_summary_reports UNIQUE (authority_id, ward_id, report_period, period_start)
+);
+
+CREATE INDEX IF NOT EXISTS idx_summary_reports_authority ON summary_reports (authority_id);
+CREATE INDEX IF NOT EXISTS idx_summary_reports_ward       ON summary_reports (ward_id);
+CREATE INDEX IF NOT EXISTS idx_summary_reports_period     ON summary_reports (report_period, period_start DESC);
+
+COMMENT ON TABLE  summary_reports                     IS 'Pre-aggregated periodic reports for authorities and wards';
+COMMENT ON COLUMN summary_reports.ward_id             IS 'NULL means report covers entire jurisdiction';
+COMMENT ON COLUMN summary_reports.period_start        IS 'Inclusive start date';
+COMMENT ON COLUMN summary_reports.period_end          IS 'Inclusive end date';
+COMMENT ON COLUMN summary_reports.avg_resolution_days IS 'Mean calendar days from creation to resolution';
+COMMENT ON COLUMN summary_reports.top_category        IS 'Most frequently reported category in period';
