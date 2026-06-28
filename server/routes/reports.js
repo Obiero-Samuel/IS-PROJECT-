@@ -5,6 +5,7 @@ const router = express.Router();
 
 const { verifyToken } = require('../middleware/auth');
 const {
+  getCategories,
   createReport,
   getReports,
   getMyReports,
@@ -44,6 +45,9 @@ const upload = multer({
 
 // GET /api/reports — public paginated list
 router.get('/', getReports);
+
+// GET /api/reports/categories — public categories for report form
+router.get('/categories', getCategories);
 
 // GET /api/reports/mine — authenticated user's own reports
 router.get('/mine', verifyToken, getMyReports);

@@ -13,6 +13,23 @@ const generateTrackingNumber = () => {
 };
 
 // ---------------------------------------------------------------------------
+// GET /api/reports/categories  (public)
+// ---------------------------------------------------------------------------
+const getCategories = async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT id, name, description
+       FROM categories
+       ORDER BY name ASC`
+    );
+
+    res.json({ categories: result.rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // POST /api/reports  (auth required)
 // Accepts multipart/form-data
 // ---------------------------------------------------------------------------
@@ -261,6 +278,7 @@ const upvoteReport = async (req, res, next) => {
 };
 
 module.exports = {
+  getCategories,
   createReport,
   getReports,
   getMyReports,
