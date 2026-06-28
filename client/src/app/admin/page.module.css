@@ -1,0 +1,116 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.toolbar button {
+  border: 0;
+  border-radius: 10px;
+  background: #1f6fb8;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+}
+
+.toolbar p {
+  color: #2d5379;
+}
+
+.section {
+  display: grid;
+  gap: 0.75rem;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 35, 56, 0.15);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1rem;
+  box-shadow: 0 12px 24px rgba(10, 34, 58, 0.08);
+}
+
+.section h2 {
+  font-size: 1.1rem;
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.section table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.section th,
+.section td {
+  text-align: left;
+  padding: 0.55rem;
+  border-bottom: 1px solid rgba(16, 35, 56, 0.12);
+}
+
+.section select,
+.createRow input,
+.createRow button {
+  font: inherit;
+  border-radius: 10px;
+}
+
+.section select,
+.createRow input {
+  border: 1px solid rgba(16, 35, 56, 0.2);
+  padding: 0.46rem 0.6rem;
+  background: #f8fbff;
+}
+
+.createRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.createRow button {
+  border: 0;
+  background: #133d67;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+}
+
+.list {
+  display: grid;
+  gap: 0.45rem;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  background: #f7fbff;
+  border: 1px solid rgba(16, 35, 56, 0.1);
+}
+
+.list span {
+  color: #4b6986;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 960px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .createRow {
+    grid-template-columns: 1fr;
+  }
+
+  .list li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
