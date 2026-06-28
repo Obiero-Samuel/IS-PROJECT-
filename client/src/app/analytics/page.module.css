@@ -1,0 +1,127 @@
+.generator {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+.field input,
+.field select {
+  border: 1px solid rgba(16, 35, 56, 0.2);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  font: inherit;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.buttons {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.buttons button {
+  border: 0;
+  border-radius: 10px;
+  background: #155a96;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+}
+
+.message {
+  color: #345777;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.stats article {
+  border-radius: 14px;
+  border: 1px solid rgba(16, 35, 56, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.85rem;
+}
+
+.stats h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.stats p {
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+
+.reportGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.reportCard {
+  border-radius: 16px;
+  border: 1px solid rgba(16, 35, 56, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 20px rgba(10, 34, 58, 0.08);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.reportTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-source-code), monospace;
+}
+
+.reportTop span {
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #edf5ff;
+  border: 1px solid rgba(20, 90, 150, 0.22);
+}
+
+.reportCard h2 {
+  font-size: 1.05rem;
+}
+
+.reportCard p,
+.reportCard li {
+  color: #45617d;
+}
+
+.reportCard ul {
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+}
+
+@media (max-width: 980px) {
+  .generator,
+  .stats,
+  .reportGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .buttons {
+    flex-direction: column;
+  }
+}
