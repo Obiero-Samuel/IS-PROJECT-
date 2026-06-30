@@ -16,10 +16,9 @@ const getQueryParam = (key: string, fallback = "") => {
 export default function LoginPage() {
     const router = useRouter();
     const requestedNextPath = getQueryParam("next", "");
-    const initialEmail = getQueryParam("email", "");
     const [portalRole, setPortalRole] = useState<"resident" | "authority" | "admin">("resident");
     const [username, setUsername] = useState("");
-    const [email, setEmail] = useState(initialEmail);
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [wardId, setWardId] = useState("");
     const [wards, setWards] = useState<Ward[]>([]);

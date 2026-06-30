@@ -27,6 +27,12 @@ export default function VerifyEmailPage() {
         event.preventDefault();
         setError(null);
         setMessage(null);
+
+        if (!email) {
+            setError("Email is missing from this verification link. Please register or login again.");
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -43,6 +49,12 @@ export default function VerifyEmailPage() {
     const handleResend = async () => {
         setError(null);
         setMessage(null);
+
+        if (!email) {
+            setError("Email is missing from this verification link. Please register or login again.");
+            return;
+        }
+
         setResending(true);
 
         try {
@@ -72,7 +84,7 @@ export default function VerifyEmailPage() {
                     <section className="card stack auth-card">
                         <h1 className="title">Verify your email</h1>
                         <p className="subtitle">
-                            Enter the 6-digit OTP sent to <strong>{email || "your email"}</strong>.
+                            Enter the 6-digit OTP sent to your email.
                         </p>
 
                         {message && <p className="message success">{message}</p>}
@@ -94,12 +106,12 @@ export default function VerifyEmailPage() {
                                 />
                             </label>
 
-                            <button type="submit" className="primary" disabled={loading || !email}>
+                            <button type="submit" className="primary" disabled={loading}>
                                 {loading ? "Verifying..." : "Verify and continue"}
                             </button>
                         </form>
 
-                        <button type="button" className="ghost" onClick={handleResend} disabled={resending || !email}>
+                        <button type="button" className="ghost" onClick={handleResend} disabled={resending}>
                             {resending ? "Sending OTP..." : "Resend OTP"}
                         </button>
                     </section>

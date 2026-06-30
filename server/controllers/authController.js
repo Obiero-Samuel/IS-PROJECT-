@@ -38,6 +38,14 @@ const sendVerificationOtpEmail = async (email, username, otp) => {
   const transporter = getMailer();
 
   if (!transporter) {
+    if (!IS_PRODUCTION) {
+      return {
+        messageId: 'dev-no-smtp',
+        response: 'SMTP not configured. OTP not emailed; use debug OTP in response for local development.',
+        delivered: false,
+      };
+    }
+
     throw new Error('Email service is not configured. Please set SMTP credentials in .env.');
   }
 
@@ -68,7 +76,10 @@ const sendVerificationOtpEmail = async (email, username, otp) => {
     throw new Error('Email provider did not accept the recipient address. Please confirm the email and retry.');
   }
 
-  return info;
+  return {
+    ...info,
+    delivered: true,
+  };
 };
 
 const issueAndStoreOtp = async (userId, email, username) => {
@@ -130,11 +141,16 @@ const profileEditsMeta = (user) => {
 const buildOtpDebug = (otpResult) => {
   if (IS_PRODUCTION) return undefined;
 
+  const mustExposeOtp = EXPOSE_DEV_OTP || otpResult?.mailInfo?.delivered === false;
+
   return {
-    ...(EXPOSE_DEV_OTP ? { otp: otpResult.otp } : {}),
+    ...(mustExposeOtp ? { otp: otpResult.otp } : {}),
     expiresInMinutes: OTP_TTL_MINUTES,
     smtpMessageId: otpResult.mailInfo?.messageId,
     smtpResponse: otpResult.mailInfo?.response,
+    ...(otpResult?.mailInfo?.delivered === false
+      ? { delivery: 'not-sent-dev-fallback' }
+      : { delivery: 'sent' }),
   };
 };
 
@@ -196,7 +212,9 @@ const register = async (req, res, next) => {
     const otpResult = await issueAndStoreOtp(user.id, user.email, user.username);
 
     const responseBody = {
-      message: 'Registration successful. A verification OTP has been sent to your email.',
+      message: otpResult.mailInfo?.delivered === false
+        ? 'Registration successful. SMTP is not configured in local development. Use the debug OTP to verify your account.'
+        : 'Registration successful. A verification OTP has been sent to your email.',
       requiresVerification: true,
       email: user.email
     };
@@ -377,7 +395,11 @@ const resendVerificationOtp = async (req, res, next) => {
 
     const otpResult = await issueAndStoreOtp(user.id, user.email, user.username);
 
-    const responseBody = { message: 'A new verification OTP has been sent.' };
+    const responseBody = {
+      message: otpResult.mailInfo?.delivered === false
+        ? 'SMTP is not configured in local development. Use the debug OTP to verify your account.'
+        : 'A new verification OTP has been sent.',
+    };
     const debug = buildOtpDebug(otpResult);
     if (debug) responseBody.debug = debug;
 
