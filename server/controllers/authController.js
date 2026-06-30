@@ -8,6 +8,7 @@ const SALT_ROUNDS = 12;
 const OTP_TTL_MINUTES = parseInt(process.env.OTP_TTL_MINUTES || '10', 10);
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PROFILE_MAX_EDITS = parseInt(process.env.PROFILE_MAX_EDITS || '5', 10);
+const EXPOSE_DEV_OTP = !IS_PRODUCTION && String(process.env.EXPOSE_DEV_OTP || '').toLowerCase() === 'true';
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
@@ -126,6 +127,17 @@ const profileEditsMeta = (user) => {
   };
 };
 
+const buildOtpDebug = (otpResult) => {
+  if (IS_PRODUCTION) return undefined;
+
+  return {
+    ...(EXPOSE_DEV_OTP ? { otp: otpResult.otp } : {}),
+    expiresInMinutes: OTP_TTL_MINUTES,
+    smtpMessageId: otpResult.mailInfo?.messageId,
+    smtpResponse: otpResult.mailInfo?.response,
+  };
+};
+
 /**
  * Helper: sign a JWT for a given user record
  */
@@ -189,14 +201,8 @@ const register = async (req, res, next) => {
       email: user.email
     };
 
-    if (!IS_PRODUCTION) {
-      responseBody.debug = {
-        otp: otpResult.otp,
-        expiresInMinutes: OTP_TTL_MINUTES,
-        smtpMessageId: otpResult.mailInfo?.messageId,
-        smtpResponse: otpResult.mailInfo?.response,
-      };
-    }
+    const debug = buildOtpDebug(otpResult);
+    if (debug) responseBody.debug = debug;
 
     res.status(201).json(responseBody);
   } catch (err) {
@@ -209,25 +215,41 @@ const register = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const login = async (req, res, next) => {
   try {
-    const { username, email, password, ward_id } = req.body;
+    const { username, email, password, ward_id, role_context } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
-    if (!username || !normalizedEmail || !password || !ward_id) {
-      return res.status(400).json({ error: { message: 'username, email, password, and ward_id are required.' } });
+    if (!username || !normalizedEmail || !password) {
+      return res.status(400).json({ error: { message: 'username, email, and password are required.' } });
     }
 
     // Look up user
     const result = await db.query(
       `SELECT id, username, email, password_hash, role, ward_id, is_email_verified
        FROM users
-       WHERE email = $1 AND username = $2 AND ward_id = $3`,
-      [normalizedEmail, username, ward_id]
+       WHERE email = $1 AND username = $2`,
+      [normalizedEmail, username]
     );
     if (result.rows.length === 0) {
       return res.status(401).json({ error: { message: 'Invalid credentials.' } });
     }
 
     const user = result.rows[0];
+
+    if (typeof role_context === 'string' && role_context.trim() && role_context !== user.role) {
+      return res.status(403).json({
+        error: { message: `This account is not allowed for ${role_context} portal access.` },
+      });
+    }
+
+    if (user.role === 'resident') {
+      if (!ward_id) {
+        return res.status(400).json({ error: { message: 'ward_id is required for resident login.' } });
+      }
+
+      if (Number(ward_id) !== Number(user.ward_id)) {
+        return res.status(401).json({ error: { message: 'Invalid credentials.' } });
+      }
+    }
 
     // Verify password
     const valid = await bcrypt.compare(password, user.password_hash);
@@ -356,14 +378,8 @@ const resendVerificationOtp = async (req, res, next) => {
     const otpResult = await issueAndStoreOtp(user.id, user.email, user.username);
 
     const responseBody = { message: 'A new verification OTP has been sent.' };
-    if (!IS_PRODUCTION) {
-      responseBody.debug = {
-        otp: otpResult.otp,
-        expiresInMinutes: OTP_TTL_MINUTES,
-        smtpMessageId: otpResult.mailInfo?.messageId,
-        smtpResponse: otpResult.mailInfo?.response,
-      };
-    }
+    const debug = buildOtpDebug(otpResult);
+    if (debug) responseBody.debug = debug;
 
     res.json(responseBody);
   } catch (err) {
