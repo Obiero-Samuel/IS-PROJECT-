@@ -250,6 +250,12 @@ img {
         color 160ms ease;
 }
 
+.nav-link-active {
+    color: #312e81;
+    border-color: var(--border-strong) !important;
+    background: rgba(79, 70, 229, 0.12);
+}
+
 .nav a:hover,
 .nav button:hover {
     transform: translateY(-1px);
@@ -628,6 +634,12 @@ form a.ghost {
         border-color: #3c5380;
         color: #dbe4ff;
         background: rgba(124, 134, 255, 0.18);
+    }
+
+    .nav-link-active {
+        border-color: #4a669d !important;
+        color: #dbe4ff;
+        background: rgba(124, 134, 255, 0.26);
     }
 
     .card {
