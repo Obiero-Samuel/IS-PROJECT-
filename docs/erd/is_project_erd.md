@@ -231,12 +231,26 @@ This project follows the requested **Input → Processing → Storage → Output
 ### 4) Automated System flow
 
 - **Input**: Scheduled job trigger (`node-cron`) in `server/server.js`.
-- **Processing**: Overdue escalation checks + summary generation modules.
-- **Storage**: `summary_reports` (analytics output layer) and escalation-related tables.
-- **Output**: Weekly/periodic operational analytics surfaces (`/analytics`) and escalation monitoring.
+- **Processing**: Overdue escalation checks + weekly analytics generation modules.
+- **Storage**: Canonical `analytics` + `sessions` tables (with `summary_reports` still available for authority-period summaries).
+- **Output**: Weekly analytics snapshots + overdue escalation alerts (API + email when SMTP is configured).
 
 ### Table naming compatibility notes
 
-- Architectural term **`audit_trail`** maps to implementation table **`status_logs`**.
-- Architectural term **`analytics`** maps to implementation table **`summary_reports`**.
+- Canonical shared tables are now implemented directly: **`audit_trail`**, **`analytics`**, **`sessions`** (Migration `015_create_flow_contract_tables.sql`).
+- **`status_logs`** remains the immutable operational status log; inserts are synchronized into **`audit_trail`** via DB trigger.
+- **`summary_reports`** remains authority/ward reporting output, while **`analytics`** stores weekly system-level KPI snapshots.
 - Architectural term **`issues`** maps to implementation table **`reports`**.
+
+### Module-to-implementation contract (Backend)
+
+| Logical module | Route file | Controller file |
+|---|---|---|
+| Report Submission | `server/routes/reports.js` | `server/controllers/reportController.js` |
+| Authentication & Role Manager | `server/routes/auth.js` | `server/controllers/authController.js` |
+| Authority Routing Engine | `server/routes/routing.js` | `server/controllers/routingController.js` |
+| Officer Login & Case Access | `server/routes/officer.js` | `server/controllers/officerController.js` |
+| Admin Login & Configuration | `server/routes/admin.js` | `server/controllers/adminController.js` |
+| Escalation Engine & Audit Logger | `server/routes/escalation.js` | `server/controllers/escalationController.js` |
+| Automated Triggers / Cron Job | `server/routes/automation.js` + `server/jobs/*.js` | `server/controllers/automationController.js` |
+| Analytics & Reporting Engine | `server/routes/analytics.js` | `server/controllers/analyticsController.js` |

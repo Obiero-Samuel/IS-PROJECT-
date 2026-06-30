@@ -92,3 +92,37 @@ This runs lint + production build.
 - Verify email via OTP
 - Login with role context (resident / authority / admin)
 - Confirm role-based navigation and redirect behavior
+
+## IPO+S Backend Contract (Always-On Guardrail)
+
+The backend is structured to preserve this module flow at all times:
+
+- **Resident**: input through report submission, validated by JWT/RBAC, stored in `reports`, surfaced via public/resident dashboards.
+- **Authority Officer**: case-queue access with role filtering, category-to-authority routing, status updates back into system.
+- **Administrator**: user/category/ward/routing configuration and escalation oversight.
+- **Automated System**: scheduled deadline monitoring + weekly analytics generation.
+
+### Canonical shared PostgreSQL tables
+
+- `users`
+- `reports`
+- `authorities`
+- `audit_trail`
+- `analytics`
+- `sessions`
+
+### Module route/controller pairs
+
+- Report Submission → `server/routes/reports.js` / `server/controllers/reportController.js`
+- Auth & Role Manager → `server/routes/auth.js` / `server/controllers/authController.js`
+- Authority Routing Engine → `server/routes/routing.js` / `server/controllers/routingController.js`
+- Officer Login & Case Access → `server/routes/officer.js` / `server/controllers/officerController.js`
+- Admin Login & Configuration → `server/routes/admin.js` / `server/controllers/adminController.js`
+- Escalation Engine & Audit Logger → `server/routes/escalation.js` / `server/controllers/escalationController.js`
+- Automated Triggers → `server/routes/automation.js` + `server/jobs/`
+- Analytics & Reporting Engine → `server/routes/analytics.js` / `server/controllers/analyticsController.js`
+
+> After pulling updates, run backend migrations so canonical tables and triggers exist:
+>
+> - `cd server`
+> - `npm run db:migrate`
