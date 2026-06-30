@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const router = express.Router();
 
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, requireRole } = require('../middleware/auth');
 const {
   getCategories,
   createReport,
@@ -56,7 +56,7 @@ router.get('/mine', verifyToken, getMyReports);
 router.get('/:id', getReportById);
 
 // POST /api/reports — submit new issue (auth + optional photo)
-router.post('/', verifyToken, upload.single('photo'), createReport);
+router.post('/', verifyToken, requireRole('resident'), upload.single('photo'), createReport);
 
 // POST /api/reports/:id/upvote — toggle upvote
 router.post('/:id/upvote', verifyToken, upvoteReport);

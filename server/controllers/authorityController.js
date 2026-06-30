@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { recordAuditTrail } = require('../services/flowAuditService');
 
 // ============================================================================
 // Authority Routing
@@ -172,6 +173,19 @@ const createEscalation = async (req, res, next) => {
       [report_id, authority_id, userId, reason]
     );
 
+    await recordAuditTrail({
+      reportId: Number(report_id),
+      actorUserId: userId,
+      actorRole: req.user.role,
+      actionType: 'escalation_created',
+      notes: reason,
+      metadata: {
+        module: 'Escalation Engine & Audit Logger',
+        escalation_id: result.rows[0].id,
+        authority_id: Number(authority_id),
+      },
+    });
+
     res.status(201).json({ message: 'Escalation created', escalation: result.rows[0] });
   } catch (error) {
     next(error);
@@ -215,6 +229,16 @@ const updateEscalationStatus = async (req, res, next) => {
       return res.status(400).json({ error: { message: 'Invalid status' } });
     }
 
+    const previousRes = await db.query(
+      'SELECT id, report_id, status FROM escalations WHERE id = $1',
+      [escalationId]
+    );
+    if (previousRes.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Escalation not found' } });
+    }
+
+    const previous = previousRes.rows[0];
+
     let timestampUpdate = '';
     if (status === 'acknowledged') timestampUpdate = ', acknowledged_at = NOW()';
     if (status === 'resolved' || status === 'rejected') timestampUpdate = ', resolved_at = NOW()';
@@ -226,9 +250,19 @@ const updateEscalationStatus = async (req, res, next) => {
       [status, authority_notes || null, escalationId]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: { message: 'Escalation not found' } });
-    }
+    await recordAuditTrail({
+      reportId: previous.report_id,
+      actorUserId: req.user.id,
+      actorRole: req.user.role,
+      actionType: 'escalation_status_updated',
+      oldStatus: previous.status,
+      newStatus: status,
+      notes: authority_notes || null,
+      metadata: {
+        module: 'Escalation Engine & Audit Logger',
+        escalation_id: escalationId,
+      },
+    });
 
     res.json({ message: 'Escalation updated', escalation: result.rows[0] });
   } catch (error) {

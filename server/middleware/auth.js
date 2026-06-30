@@ -25,7 +25,7 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const userRes = await db.query(
-      'SELECT id, email, role FROM users WHERE id = $1',
+      'SELECT id, email, role, ward_id FROM users WHERE id = $1',
       [decoded.id]
     );
 
@@ -34,7 +34,7 @@ const verifyToken = async (req, res, next) => {
     }
 
     const user = userRes.rows[0];
-    req.user = { id: user.id, email: user.email, role: user.role };
+    req.user = { id: user.id, email: user.email, role: user.role, ward_id: user.ward_id };
     next();
   } catch (err) {
     next(err);

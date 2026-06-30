@@ -1,6 +1,7 @@
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
+const { recordAuditTrail } = require('../services/flowAuditService');
 
 // ---------------------------------------------------------------------------
 // Tracking number generator: CP-YYYYMMDD-XXXX
@@ -35,7 +36,7 @@ const getCategories = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const createReport = async (req, res, next) => {
   try {
-    const { title, description, category_id, latitude, longitude, location_address } = req.body;
+    const { title, description, category_id, ward_id, latitude, longitude, location_address } = req.body;
 
     if (!title || !description || !category_id) {
       return res.status(400).json({ error: { message: 'title, description, and category_id are required.' } });
@@ -45,6 +46,16 @@ const createReport = async (req, res, next) => {
     const catCheck = await db.query('SELECT id FROM categories WHERE id = $1', [category_id]);
     if (catCheck.rows.length === 0) {
       return res.status(400).json({ error: { message: 'Invalid category_id.' } });
+    }
+
+    const parsedWardId = Number(ward_id || req.user.ward_id);
+    if (!Number.isInteger(parsedWardId) || parsedWardId <= 0) {
+      return res.status(400).json({ error: { message: 'ward_id is required for resident report submission.' } });
+    }
+
+    const wardCheck = await db.query('SELECT id FROM wards WHERE id = $1', [parsedWardId]);
+    if (wardCheck.rows.length === 0) {
+      return res.status(400).json({ error: { message: 'Invalid ward_id.' } });
     }
 
     // Build media_url if a file was uploaded
@@ -67,13 +78,14 @@ const createReport = async (req, res, next) => {
 
     const result = await db.query(
       `INSERT INTO reports
-         (user_id, category_id, title, description, latitude, longitude,
+         (user_id, category_id, ward_id, title, description, latitude, longitude,
           location_address, media_url, tracking_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, tracking_number, title, status, created_at`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, tracking_number, title, status, ward_id, created_at`,
       [
         req.user.id,
         category_id,
+        parsedWardId,
         title,
         description,
         latitude || null,
@@ -83,6 +95,20 @@ const createReport = async (req, res, next) => {
         tracking_number
       ]
     );
+
+    await recordAuditTrail({
+      reportId: result.rows[0].id,
+      actorUserId: req.user.id,
+      actorRole: req.user.role,
+      actionType: 'report_submitted',
+      newStatus: result.rows[0].status,
+      metadata: {
+        module: 'Report Submission',
+        category_id: Number(category_id),
+        ward_id: parsedWardId,
+        tracking_number: result.rows[0].tracking_number,
+      },
+    });
 
     res.status(201).json({
       message: 'Report submitted successfully.',
