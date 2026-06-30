@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import NavBar from "@/components/NavBar";
 import RequireAuth from "@/components/RequireAuth";
 import { getMyProfile, toPublicAssetUrl, updateMyProfile } from "@/lib/api";
@@ -138,7 +139,14 @@ export default function MyProfilePage() {
                                 <aside className={`${styles.summaryCard} card`}>
                                     <div className={styles.avatarWrap}>
                                         {photoUrl ? (
-                                            <img src={photoUrl} alt="Profile" className={styles.avatar} />
+                                            <Image
+                                                src={photoUrl}
+                                                alt="Profile"
+                                                width={132}
+                                                height={132}
+                                                className={styles.avatar}
+                                                sizes="132px"
+                                            />
                                         ) : (
                                             <div className={styles.avatarFallback}>
                                                 {(profile?.full_name || authUser?.username || "U")

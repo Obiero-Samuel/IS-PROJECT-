@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import NavBar from "@/components/NavBar";
 import RequireAuth from "@/components/RequireAuth";
 import { getPublicReports, toPublicAssetUrl, toggleUpvote } from "@/lib/api";
@@ -83,11 +84,14 @@ export default function PublicReportsPage() {
                                     <p className="muted">Category: {report.category_name}</p>
                                     <p className="muted">Location: {report.location_address || "Not provided"}</p>
 
-                                    {report.media_url && (
-                                        <img
-                                            src={toPublicAssetUrl(report.media_url) ?? undefined}
+                                    {report.media_url && toPublicAssetUrl(report.media_url) && (
+                                        <Image
+                                            src={toPublicAssetUrl(report.media_url) as string}
                                             alt={report.title}
                                             className="report-image"
+                                            width={1200}
+                                            height={680}
+                                            sizes="(max-width: 768px) 100vw, 50vw"
                                         />
                                     )}
 
