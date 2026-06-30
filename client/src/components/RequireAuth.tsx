@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getToken } from "@/lib/auth";
+import { authFromSnapshot, getAuthServerSnapshot, getAuthSnapshot, subscribeAuth } from "@/lib/auth";
 
 interface RequireAuthProps {
     children: React.ReactNode;
@@ -11,11 +11,13 @@ interface RequireAuthProps {
 export default function RequireAuth({ children }: RequireAuthProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const [isAuthed] = useState<boolean>(() => Boolean(getToken()));
+    const authRaw = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getAuthServerSnapshot);
+    const auth = authFromSnapshot(authRaw);
+    const isAuthed = Boolean(auth?.token);
 
     useEffect(() => {
         if (!isAuthed) {
-            const nextParam = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
+            const nextParam = pathname ? `?next=${encodeURIComponent(pathname)}` : "?next=%2Fmy-profile";
             router.replace(`/register${nextParam}`);
         }
     }, [isAuthed, pathname, router]);

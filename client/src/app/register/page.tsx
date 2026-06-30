@@ -14,7 +14,7 @@ const getQueryParam = (key: string, fallback = "") => {
 
 export default function RegisterPage() {
     const router = useRouter();
-    const nextPath = getQueryParam("next", "/");
+    const nextPath = getQueryParam("next", "/my-profile");
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -27,7 +27,7 @@ export default function RegisterPage() {
 
     useEffect(() => {
         if (getToken()) {
-            router.replace("/");
+            router.replace("/my-profile");
         }
     }, [router]);
 

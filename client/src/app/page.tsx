@@ -17,8 +17,8 @@ export default function Home() {
               Report issues, track progress, and support community priorities through upvotes.
             </p>
             <div className="row">
-              <Link href="/reports/new" className="primary">Submit a report</Link>
-              <Link href="/reports" className="ghost">View reports</Link>
+              <Link href="/my-profile" className="primary">Go to my profile</Link>
+              <Link href="/reports/new" className="ghost">Submit a report</Link>
             </div>
           </section>
 

@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { clearAuth, getAuth } from "@/lib/auth";
-import type { AuthUser } from "@/lib/types";
+import { useSyncExternalStore } from "react";
+import { authFromSnapshot, clearAuth, getAuthServerSnapshot, getAuthSnapshot, subscribeAuth } from "@/lib/auth";
 
 export default function NavBar() {
-    const [user, setUser] = useState<AuthUser | null>(() => getAuth()?.user ?? null);
+    const authRaw = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getAuthServerSnapshot);
+    const auth = authFromSnapshot(authRaw);
+    const user = auth?.user ?? null;
 
     const handleLogout = () => {
         clearAuth();
-        setUser(null);
         window.location.href = "/";
     };
 
@@ -27,6 +27,7 @@ export default function NavBar() {
                         </>
                     ) : (
                         <>
+                            <Link href="/my-profile">My profile</Link>
                             <Link href="/reports">Reports</Link>
                             <Link href="/ward-map">Ward map</Link>
                             <Link href="/reports/new">Submit</Link>

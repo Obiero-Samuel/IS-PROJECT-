@@ -20,6 +20,38 @@ export interface AuthPayload {
     user: AuthUser;
 }
 
+export interface ProfileEditsMeta {
+    used: number;
+    max: number;
+    remaining: number;
+}
+
+export interface UserProfile {
+    id: number;
+    username: string;
+    email: string;
+    role: UserRole;
+    ward_id?: number | null;
+    full_name: string;
+    phone_number?: string | null;
+    date_of_birth?: string | null;
+    residence?: string | null;
+    profile_photo_url?: string | null;
+    bio?: string | null;
+    created_at: string;
+}
+
+export interface ProfileResponse {
+    profile: UserProfile;
+    profileEdits: ProfileEditsMeta;
+}
+
+export interface UpdateProfileResponse extends AuthPayload {
+    message: string;
+    profile: UserProfile;
+    profileEdits: ProfileEditsMeta;
+}
+
 export interface RegisterResponse {
     message: string;
     requiresVerification: boolean;

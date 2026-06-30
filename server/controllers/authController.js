@@ -7,6 +7,7 @@ const db = require('../config/db');
 const SALT_ROUNDS = 12;
 const OTP_TTL_MINUTES = parseInt(process.env.OTP_TTL_MINUTES || '10', 10);
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const PROFILE_MAX_EDITS = parseInt(process.env.PROFILE_MAX_EDITS || '5', 10);
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
@@ -90,6 +91,39 @@ const issueAndStoreOtp = async (userId, email, username) => {
   }
 
   return { otp, mailInfo };
+};
+
+const toAuthUser = (user) => ({
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  role: user.role,
+  ward_id: user.ward_id,
+});
+
+const toProfile = (user) => ({
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  role: user.role,
+  ward_id: user.ward_id,
+  full_name: user.full_name ?? user.username,
+  phone_number: user.phone_number ?? null,
+  date_of_birth: user.date_of_birth ?? null,
+  residence: user.residence ?? null,
+  profile_photo_url: user.profile_photo_url ?? null,
+  bio: user.bio ?? null,
+  created_at: user.created_at,
+});
+
+const profileEditsMeta = (user) => {
+  const used = Number(user.profile_edit_count || 0);
+  const max = Number.isFinite(PROFILE_MAX_EDITS) && PROFILE_MAX_EDITS > 0 ? PROFILE_MAX_EDITS : 5;
+  return {
+    used,
+    max,
+    remaining: Math.max(max - used, 0),
+  };
 };
 
 /**
@@ -214,7 +248,7 @@ const login = async (req, res, next) => {
     res.json({
       message: 'Login successful.',
       token,
-      user: { id: user.id, username: user.username, email: user.email, role: user.role, ward_id: user.ward_id }
+      user: toAuthUser(user)
     });
   } catch (err) {
     next(err);
@@ -252,7 +286,7 @@ const verifyEmailOtp = async (req, res, next) => {
       return res.json({
         message: 'Email already verified.',
         token,
-        user: { id: user.id, username: user.username, email: user.email, role: user.role, ward_id: user.ward_id },
+        user: toAuthUser(user),
       });
     }
 
@@ -284,7 +318,7 @@ const verifyEmailOtp = async (req, res, next) => {
     res.json({
       message: 'Email verified successfully.',
       token,
-      user: { id: user.id, username: user.username, email: user.email, role: user.role, ward_id: user.ward_id },
+      user: toAuthUser(user),
     });
   } catch (err) {
     next(err);
@@ -389,13 +423,178 @@ const listWards = async (req, res, next) => {
 const getMe = async (req, res, next) => {
   try {
     const result = await db.query(
-      'SELECT id, username, email, role, created_at FROM users WHERE id = $1',
+      `SELECT id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
+              residence, profile_photo_url, bio, profile_edit_count, created_at
+       FROM users
+       WHERE id = $1`,
       [req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { message: 'User not found.' } });
     }
-    res.json({ user: result.rows[0] });
+    const user = result.rows[0];
+    res.json({
+      user: toAuthUser(user),
+      profile: toProfile(user),
+      profileEdits: profileEditsMeta(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/auth/profile  (protected)
+// ---------------------------------------------------------------------------
+const getMyProfile = async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
+              residence, profile_photo_url, bio, profile_edit_count, created_at
+       FROM users
+       WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'User not found.' } });
+    }
+
+    const user = result.rows[0];
+    res.json({
+      profile: toProfile(user),
+      profileEdits: profileEditsMeta(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PATCH /api/auth/profile  (protected)
+// Accepts multipart/form-data (optional photo) or JSON payload
+// ---------------------------------------------------------------------------
+const updateMyProfile = async (req, res, next) => {
+  try {
+    const userResult = await db.query(
+      `SELECT id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
+              residence, profile_photo_url, bio, profile_edit_count, created_at
+       FROM users
+       WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'User not found.' } });
+    }
+
+    const currentUser = userResult.rows[0];
+    const editMeta = profileEditsMeta(currentUser);
+    if (editMeta.remaining <= 0) {
+      return res.status(403).json({
+        error: { message: `Profile update limit reached. Maximum allowed updates: ${editMeta.max}.` },
+        profileEdits: editMeta,
+      });
+    }
+
+    const updates = [];
+    const values = [];
+
+    const incomingName = req.body.full_name ?? req.body.name;
+    if (incomingName !== undefined) {
+      const fullName = String(incomingName).trim();
+      if (!fullName) {
+        return res.status(400).json({ error: { message: 'name is required when updating profile name.' } });
+      }
+      values.push(fullName);
+      updates.push(`full_name = $${values.length}`);
+    }
+
+    if (req.body.phone_number !== undefined) {
+      const rawPhone = String(req.body.phone_number || '').trim();
+      if (rawPhone && !/^[0-9+\-\s()]{7,20}$/.test(rawPhone)) {
+        return res.status(400).json({ error: { message: 'Invalid phone number format.' } });
+      }
+      values.push(rawPhone || null);
+      updates.push(`phone_number = $${values.length}`);
+    }
+
+    if (req.body.email !== undefined) {
+      const normalizedEmail = normalizeEmail(req.body.email);
+      if (!normalizedEmail) {
+        return res.status(400).json({ error: { message: 'email is required when updating profile email.' } });
+      }
+
+      if (normalizedEmail !== currentUser.email) {
+        const emailCheck = await db.query(
+          'SELECT id FROM users WHERE email = $1 AND id <> $2',
+          [normalizedEmail, req.user.id]
+        );
+        if (emailCheck.rows.length > 0) {
+          return res.status(409).json({ error: { message: 'Email is already in use by another account.' } });
+        }
+      }
+
+      values.push(normalizedEmail);
+      updates.push(`email = $${values.length}`);
+    }
+
+    if (req.body.date_of_birth !== undefined) {
+      const rawDob = String(req.body.date_of_birth || '').trim();
+      if (rawDob && !/^\d{4}-\d{2}-\d{2}$/.test(rawDob)) {
+        return res.status(400).json({ error: { message: 'date_of_birth must use YYYY-MM-DD format.' } });
+      }
+      values.push(rawDob || null);
+      updates.push(`date_of_birth = $${values.length}`);
+    }
+
+    if (req.body.residence !== undefined) {
+      const residence = String(req.body.residence || '').trim();
+      values.push(residence || null);
+      updates.push(`residence = $${values.length}`);
+    }
+
+    if (req.body.bio !== undefined) {
+      const bio = String(req.body.bio || '').trim();
+      if (bio.length > 500) {
+        return res.status(400).json({ error: { message: 'Bio cannot exceed 500 characters.' } });
+      }
+      values.push(bio || null);
+      updates.push(`bio = $${values.length}`);
+    }
+
+    if (req.file) {
+      values.push(`/uploads/${req.file.filename}`);
+      updates.push(`profile_photo_url = $${values.length}`);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: { message: 'No profile changes provided.' } });
+    }
+
+    updates.push('profile_edit_count = profile_edit_count + 1');
+    updates.push('updated_at = NOW()');
+
+    values.push(req.user.id);
+    const updatedUserResult = await db.query(
+      `UPDATE users
+       SET ${updates.join(', ')}
+       WHERE id = $${values.length}
+       RETURNING id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
+                 residence, profile_photo_url, bio, profile_edit_count, created_at`,
+      values
+    );
+
+    const updatedUser = updatedUserResult.rows[0];
+    const token = signToken(updatedUser);
+
+    res.json({
+      message: 'Profile updated successfully.',
+      token,
+      user: toAuthUser(updatedUser),
+      profile: toProfile(updatedUser),
+      profileEdits: profileEditsMeta(updatedUser),
+    });
   } catch (err) {
     next(err);
   }
@@ -405,6 +604,8 @@ module.exports = {
   register,
   login,
   getMe,
+  getMyProfile,
+  updateMyProfile,
   verifyEmailOtp,
   resendVerificationOtp,
   listWards,

@@ -13,7 +13,7 @@ const getQueryParam = (key: string, fallback = "") => {
 
 export default function VerifyEmailPage() {
     const router = useRouter();
-    const nextPath = getQueryParam("next", "/");
+    const nextPath = getQueryParam("next", "/my-profile");
     const email = getQueryParam("email", "");
 
     const [otp, setOtp] = useState("");
