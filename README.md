@@ -7,6 +7,17 @@ A modern web application built with a Next.js frontend, Express backend, and Pos
 - `/client` - Next.js frontend application (TypeScript, App Router, Vanilla CSS)
 - `/server` - Express backend application (Node.js, PostgreSQL client connection)
 
+## Why there are no `.html` page files
+
+This project uses **Next.js App Router**, so pages are authored as React components in `.tsx` files (for example `client/src/app/page.tsx`, `client/src/app/login/page.tsx`).
+
+At runtime, Next.js renders these components into real HTML that the browser receives.
+
+- HTML shell is defined in: `client/src/app/layout.tsx` (`<html>` and `<body>`)
+- Route content is defined in: `client/src/app/**/page.tsx`
+
+So we are still using HTML on the web — it is generated from TSX instead of being hand-written in separate `.html` files.
+
 ## Prerequisites
 
 - Node.js (v20+ recommended)
