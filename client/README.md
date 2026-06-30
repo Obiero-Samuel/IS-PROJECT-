@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Client App (Next.js)
 
-## Getting Started
+Frontend for the IS PROJECT platform.
 
-First, run the development server:
+## Run
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Local app URL: `http://localhost:3000`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quality Gate
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run check
+```
 
-## Learn More
+Runs:
+- ESLint (`npm run lint`)
+- Production build (`npm run build`)
 
-To learn more about Next.js, take a look at the following resources:
+## Role Pages
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Resident home: `/`
+- Resident profile: `/my-profile`
+- Public reports: `/reports`
+- Officer dashboard: `/officer`
+- Admin panel: `/admin`
+- Analytics dashboard: `/analytics`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Auth + Role Behavior
 
-## Deploy on Vercel
+- Login supports role context: resident, authority, admin
+- Resident login validates ward selection
+- OTP verification is required before access for unverified users
+- Post-login redirect uses role-aware routing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Media and Maps
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Report/profile media is served from backend uploads (`http://localhost:5000/uploads/...`)
+- Leaflet map styles are imported in app layout

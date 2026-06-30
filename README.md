@@ -62,3 +62,33 @@ createdb -U postgres is_project_db
    npm run dev
    ```
    The frontend will be running at `http://localhost:3000`.
+
+## Quick Verification (Supervisor Friendly)
+
+Use the checks below to validate the project in under 3 minutes.
+
+### Backend health
+```bash
+curl http://localhost:5000/api/health
+```
+Expected: JSON with `status: "healthy"` and `database: "connected"`.
+
+### Frontend quality gate
+```bash
+cd client
+npm run check
+```
+This runs lint + production build.
+
+### Critical pages
+- Home: `http://localhost:3000/`
+- Resident profile: `http://localhost:3000/my-profile`
+- Officer dashboard: `http://localhost:3000/officer`
+- Admin panel: `http://localhost:3000/admin`
+- Analytics dashboard: `http://localhost:3000/analytics`
+
+### Auth flow checkpoints
+- Register a resident account and select ward
+- Verify email via OTP
+- Login with role context (resident / authority / admin)
+- Confirm role-based navigation and redirect behavior
