@@ -4,7 +4,12 @@
 -- Note: FK references reports(id) — Partner A's actual table name
 -- =============================================================
 
-CREATE TYPE IF NOT EXISTS escalation_status AS ENUM ('pending', 'acknowledged', 'resolved', 'rejected');
+DO $$
+BEGIN
+  CREATE TYPE escalation_status AS ENUM ('pending', 'acknowledged', 'resolved', 'rejected');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS escalations (
   id              SERIAL PRIMARY KEY,

@@ -13,7 +13,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TYPE IF NOT EXISTS authority_type AS ENUM ('municipal', 'county', 'national', 'ngo');
+DO $$
+BEGIN
+  CREATE TYPE authority_type AS ENUM ('municipal', 'county', 'national', 'ngo');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS authorities (
   id               SERIAL PRIMARY KEY,

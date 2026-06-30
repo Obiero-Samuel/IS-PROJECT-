@@ -4,9 +4,12 @@
 -- Description: Periodic aggregated reports per ward/authority
 -- =============================================================
 
-BEGIN;
-
-CREATE TYPE report_period AS ENUM ('monthly', 'quarterly', 'annual');
+DO $$
+BEGIN
+  CREATE TYPE report_period AS ENUM ('monthly', 'quarterly', 'annual');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS summary_reports (
   id                    SERIAL PRIMARY KEY,
@@ -29,9 +32,9 @@ CREATE TABLE IF NOT EXISTS summary_reports (
   CONSTRAINT uq_summary_reports UNIQUE (authority_id, ward_id, report_period, period_start)
 );
 
-CREATE INDEX idx_summary_reports_authority ON summary_reports (authority_id);
-CREATE INDEX idx_summary_reports_ward       ON summary_reports (ward_id);
-CREATE INDEX idx_summary_reports_period     ON summary_reports (report_period, period_start DESC);
+CREATE INDEX IF NOT EXISTS idx_summary_reports_authority ON summary_reports (authority_id);
+CREATE INDEX IF NOT EXISTS idx_summary_reports_ward       ON summary_reports (ward_id);
+CREATE INDEX IF NOT EXISTS idx_summary_reports_period     ON summary_reports (report_period, period_start DESC);
 
 COMMENT ON TABLE  summary_reports                     IS 'Pre-aggregated periodic reports for authorities and wards';
 COMMENT ON COLUMN summary_reports.ward_id             IS 'NULL means the report covers the authoritys entire jurisdiction';
@@ -39,5 +42,3 @@ COMMENT ON COLUMN summary_reports.period_start        IS 'Inclusive start date o
 COMMENT ON COLUMN summary_reports.period_end          IS 'Inclusive end date of the reporting period';
 COMMENT ON COLUMN summary_reports.avg_resolution_days IS 'Mean number of calendar days from issue creation to resolution';
 COMMENT ON COLUMN summary_reports.top_category        IS 'Name of the most frequently reported issue category in this period';
-
-COMMIT;

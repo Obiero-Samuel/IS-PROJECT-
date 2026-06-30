@@ -4,7 +4,12 @@
 -- Description: Periodic aggregated reports per ward/authority
 -- =============================================================
 
-CREATE TYPE IF NOT EXISTS report_period AS ENUM ('monthly', 'quarterly', 'annual');
+DO $$
+BEGIN
+  CREATE TYPE report_period AS ENUM ('monthly', 'quarterly', 'annual');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS summary_reports (
   id                    SERIAL PRIMARY KEY,
