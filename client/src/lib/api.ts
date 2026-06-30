@@ -1,4 +1,4 @@
-import type { AuthPayload, Category, ReportsResponse } from "./types";
+import type { AuthPayload, Category, RegisterResponse, ReportsResponse, ResendOtpResponse, VerificationResponse, Ward } from "./types";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api";
 export const TOKEN_STORAGE_KEY = "is_project_token";
@@ -76,17 +76,61 @@ export function storeToken(token: string): void {
   localStorage.setItem(TOKEN_STORAGE_KEY, token.trim());
 }
 
-export const register = (username: string, email: string, password: string) =>
-  request<AuthPayload>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify({ username, email, password }),
-  });
+export const register = (username: string, email: string, password: string, ward_id: number) =>
+    request<RegisterResponse>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ username, email, password, ward_id }),
+    });
 
-export const login = (email: string, password: string) =>
-  request<AuthPayload>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  });
+export const login = (username: string, email: string, password: string, ward_id: number) =>
+    request<AuthPayload>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, email, password, ward_id }),
+    });
+
+export const verifyEmailOtp = (email: string, otp: string) =>
+    request<VerificationResponse>("/auth/verify-email-otp", {
+        method: "POST",
+        body: JSON.stringify({ email, otp }),
+    });
+
+export const resendVerificationOtp = (email: string) =>
+    request<ResendOtpResponse>("/auth/resend-verification-otp", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+    });
+
+type WardFilters = {
+    county?: string;
+    constituency?: string | string[];
+    focus?: string;
+};
+
+export const getWards = async (filters: WardFilters = {}) => {
+    const query = new URLSearchParams();
+
+    if (filters.county) {
+        query.set("county", filters.county);
+    }
+
+    if (filters.focus) {
+        query.set("focus", filters.focus);
+    }
+
+    if (filters.constituency) {
+        const constituencyValue = Array.isArray(filters.constituency)
+            ? filters.constituency.join(",")
+            : filters.constituency;
+
+        if (constituencyValue.trim()) {
+            query.set("constituency", constituencyValue);
+        }
+    }
+
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const data = await request<{ wards: Ward[] }>(`/auth/wards${suffix}`);
+    return data.wards;
+};
 
 export const getCategories = async () => {
   const data = await request<{ categories: Category[] }>("/reports/categories");

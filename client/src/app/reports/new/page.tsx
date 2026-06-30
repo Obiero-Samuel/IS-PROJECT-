@@ -1,9 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import NavBar from "@/components/NavBar";
+import RequireAuth from "@/components/RequireAuth";
 import { createReport, getCategories } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { Category } from "@/lib/types";
@@ -26,8 +26,6 @@ export default function NewReportPage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-
-    const hasToken = useMemo(() => Boolean(getToken()), []);
 
     useEffect(() => {
         const run = async () => {
@@ -94,18 +92,13 @@ export default function NewReportPage() {
     };
 
     return (
-        <>
+        <RequireAuth>
             <NavBar />
             <main className="main">
                 <div className="container stack">
                     <section className="card stack">
                         <h1 className="title">Submit a new report</h1>
                         <p className="subtitle">Tell us what happened, where it happened, and add a photo if available.</p>
-                        {!hasToken && (
-                            <p className="message error">
-                                You need to <Link href="/login">login</Link> before submitting a report.
-                            </p>
-                        )}
                     </section>
 
                     {error && <p className="message error">{error}</p>}
@@ -197,13 +190,13 @@ export default function NewReportPage() {
                                 />
                             </label>
 
-                            <button type="submit" className="primary" disabled={submitting || !hasToken}>
+                            <button type="submit" className="primary" disabled={submitting}>
                                 {submitting ? "Submitting..." : "Submit report"}
                             </button>
                         </form>
                     </section>
                 </div>
             </main>
-        </>
+        </RequireAuth>
     );
 }

@@ -1,15 +1,47 @@
 export type UserRole = "resident" | "authority" | "admin";
 
+export interface OtpDeliveryDebug {
+    otp?: string;
+    expiresInMinutes?: number;
+    smtpMessageId?: string;
+    smtpResponse?: string;
+}
+
 export interface AuthUser {
     id: number;
     username: string;
     email: string;
     role: UserRole;
+    ward_id?: number | null;
 }
 
 export interface AuthPayload {
     token: string;
     user: AuthUser;
+}
+
+export interface RegisterResponse {
+    message: string;
+    requiresVerification: boolean;
+    email: string;
+    debug?: OtpDeliveryDebug;
+}
+
+export interface ResendOtpResponse {
+    message: string;
+    debug?: OtpDeliveryDebug;
+}
+
+export interface VerificationResponse extends AuthPayload {
+    message: string;
+}
+
+export interface Ward {
+    id: number;
+    name: string;
+    code: string | null;
+    county: string;
+    constituency: string | null;
 }
 
 export interface Category {

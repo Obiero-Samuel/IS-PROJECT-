@@ -1,28 +1,61 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
-import { register } from "@/lib/api";
-import { setAuth } from "@/lib/auth";
+import { getWards, register } from "@/lib/api";
+import { getToken } from "@/lib/auth";
+import type { Ward } from "@/lib/types";
+
+const getQueryParam = (key: string, fallback = "") => {
+    if (typeof window === "undefined") return fallback;
+    return new URLSearchParams(window.location.search).get(key) || fallback;
+};
 
 export default function RegisterPage() {
     const router = useRouter();
+    const nextPath = getQueryParam("next", "/");
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [wardId, setWardId] = useState("");
+    const [wards, setWards] = useState<Ward[]>([]);
+    const [loadingWards, setLoadingWards] = useState(true);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (getToken()) {
+            router.replace("/");
+        }
+    }, [router]);
+
+    useEffect(() => {
+        const run = async () => {
+            try {
+                const wardList = await getWards({ county: "Nairobi", focus: "nairobi-west" });
+                setWards(wardList);
+            } catch {
+                setWards([]);
+            } finally {
+                setLoadingWards(false);
+            }
+        };
+
+        void run();
+    }, []);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setError(null);
+        setSuccessMessage(null);
         setLoading(true);
 
         try {
-            const result = await register(username, email, password);
-            setAuth(result);
-            router.push("/my-reports");
+            await register(username, email, password, Number(wardId));
+            setSuccessMessage("Registration successful. Check your email for OTP verification, then login and verify.");
+            router.push(`/login?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email)}`);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Registration failed.");
         } finally {
@@ -39,6 +72,7 @@ export default function RegisterPage() {
                         <h1 className="title">Create account</h1>
                         <p className="subtitle">Join as a resident and start reporting local issues.</p>
 
+                        {successMessage && <p className="message success">{successMessage}</p>}
                         {error && <p className="message error">{error}</p>}
 
                         <form onSubmit={handleSubmit}>
@@ -74,6 +108,36 @@ export default function RegisterPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="At least 8 characters"
                                 />
+                            </label>
+
+                            <label>
+                                Ward
+                                {loadingWards ? (
+                                    <input value="Loading wards..." readOnly />
+                                ) : wards.length === 0 ? (
+                                    <input
+                                        type="number"
+                                        required
+                                        value={wardId}
+                                        onChange={(e) => setWardId(e.target.value)}
+                                        placeholder="Enter ward ID"
+                                    />
+                                ) : (
+                                    <select
+                                        required
+                                        value={wardId}
+                                        onChange={(e) => setWardId(e.target.value)}
+                                    >
+                                        <option value="">Select your ward</option>
+                                        {wards.map((ward) => (
+                                            <option key={ward.id} value={ward.id}>
+                                                {ward.name}
+                                                {ward.constituency ? ` — ${ward.constituency}` : ""}
+                                                {ward.code ? ` (${ward.code})` : ""}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </label>
 
                             <button type="submit" className="primary" disabled={loading}>

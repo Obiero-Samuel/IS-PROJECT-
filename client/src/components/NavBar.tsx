@@ -20,10 +20,6 @@ export default function NavBar() {
                 <Link href="/" className="brand">IS PROJECT</Link>
 
                 <nav className="nav">
-                    <Link href="/reports">Public reports</Link>
-                    <Link href="/ward-map">Ward map</Link>
-                    <Link href="/reports/new">Submit</Link>
-                    <Link href="/my-reports">My reports</Link>
                     {!user ? (
                         <>
                             <Link href="/login">Login</Link>
@@ -31,6 +27,10 @@ export default function NavBar() {
                         </>
                     ) : (
                         <>
+                            <Link href="/reports">Reports</Link>
+                            <Link href="/ward-map">Ward map</Link>
+                            <Link href="/reports/new">Submit</Link>
+                            <Link href="/my-reports">My reports</Link>
                             <span className="muted nav-user-label">
                                 {user.username} · {user.role}
                             </span>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
+import RequireAuth from "@/components/RequireAuth";
 import { getPublicReports, toPublicAssetUrl, toggleUpvote } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { ReportItem } from "@/lib/types";
@@ -53,7 +54,7 @@ export default function PublicReportsPage() {
     };
 
     return (
-        <>
+        <RequireAuth>
             <NavBar />
             <main className="main">
                 <div className="container stack">
@@ -107,6 +108,6 @@ export default function PublicReportsPage() {
                     )}
                 </div>
             </main>
-        </>
+        </RequireAuth>
     );
 }

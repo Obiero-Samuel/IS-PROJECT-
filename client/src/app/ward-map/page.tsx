@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
+import RequireAuth from "@/components/RequireAuth";
 import { getPublicReports, toggleUpvote } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { ReportItem } from "@/lib/types";
@@ -54,7 +55,7 @@ export default function WardMapPage() {
     };
 
     return (
-        <>
+        <RequireAuth>
             <NavBar />
             <main className="main">
                 <div className="container stack">
@@ -73,6 +74,6 @@ export default function WardMapPage() {
                     {!loading && <PublicReportsMap reports={reports} onUpvote={handleUpvote} />}
                 </div>
             </main>
-        </>
+        </RequireAuth>
     );
 }

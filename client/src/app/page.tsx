@@ -1,10 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import styles from "./page.module.css";
+import RequireAuth from "@/components/RequireAuth";
 
 export default function Home() {
   return (
-    <>
+    <RequireAuth>
       <NavBar />
       <main className="main">
         <div className="container stack">
@@ -15,7 +18,7 @@ export default function Home() {
             </p>
             <div className="row">
               <Link href="/reports/new" className="primary">Submit a report</Link>
-              <Link href="/reports" className="ghost">View public reports</Link>
+              <Link href="/reports" className="ghost">View reports</Link>
             </div>
           </section>
 
@@ -24,18 +27,17 @@ export default function Home() {
               <h2>Resident actions</h2>
               <p className="muted">Create and manage your issue submissions.</p>
               <div className="stack">
-                <Link href="/register" className="ghost">Create account</Link>
-                <Link href="/login" className="ghost">Login</Link>
                 <Link href="/my-reports" className="ghost">My reports</Link>
+                <Link href="/reports/new" className="ghost">Submit issue</Link>
               </div>
             </article>
 
             <article className="card stack">
               <h2>Community visibility</h2>
-              <p className="muted">Explore reports on an interactive map and support issues via upvotes.</p>
+              <p className="muted">Explore reports on map and support priority issues.</p>
               <div className="stack">
-                <Link href="/ward-map" className="ghost">Public ward map view</Link>
-                <Link href="/reports" className="ghost">Public reports + upvote</Link>
+                <Link href="/ward-map" className="ghost">Ward map view</Link>
+                <Link href="/reports" className="ghost">Reports + upvote</Link>
               </div>
             </article>
           </section>
@@ -71,6 +73,6 @@ export default function Home() {
           </section>
         </div>
       </main>
-    </>
+    </RequireAuth>
   );
 }

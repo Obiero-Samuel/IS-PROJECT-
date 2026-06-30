@@ -1,17 +1,50 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
-import { login } from "@/lib/api";
-import { setAuth } from "@/lib/auth";
+import { getWards, login } from "@/lib/api";
+import { getToken, setAuth } from "@/lib/auth";
+import type { Ward } from "@/lib/types";
+
+const getQueryParam = (key: string, fallback = "") => {
+    if (typeof window === "undefined") return fallback;
+    return new URLSearchParams(window.location.search).get(key) || fallback;
+};
 
 export default function LoginPage() {
     const router = useRouter();
-    const [email, setEmail] = useState("");
+    const nextPath = getQueryParam("next", "/");
+    const initialEmail = getQueryParam("email", "");
+    const [username, setUsername] = useState("");
+    const [email, setEmail] = useState(initialEmail);
     const [password, setPassword] = useState("");
+    const [wardId, setWardId] = useState("");
+    const [wards, setWards] = useState<Ward[]>([]);
+    const [loadingWards, setLoadingWards] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (getToken()) {
+            router.replace("/");
+        }
+    }, [router]);
+
+    useEffect(() => {
+        const run = async () => {
+            try {
+                const wardList = await getWards({ county: "Nairobi", focus: "nairobi-west" });
+                setWards(wardList);
+            } catch {
+                setWards([]);
+            } finally {
+                setLoadingWards(false);
+            }
+        };
+
+        void run();
+    }, []);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -19,11 +52,16 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const result = await login(email, password);
+            const result = await login(username, email, password, Number(wardId));
             setAuth(result);
-            router.push("/my-reports");
+            router.push(nextPath);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Login failed.");
+            const message = err instanceof Error ? err.message : "Login failed.";
+            setError(message);
+
+            if (message.toLowerCase().includes("not verified") || message.toLowerCase().includes("otp")) {
+                router.push(`/verify-email?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}`);
+            }
         } finally {
             setLoading(false);
         }
@@ -42,6 +80,17 @@ export default function LoginPage() {
 
                         <form onSubmit={handleSubmit}>
                             <label>
+                                Username
+                                <input
+                                    type="text"
+                                    required
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="jane_doe"
+                                />
+                            </label>
+
+                            <label>
                                 Email
                                 <input
                                     type="email"
@@ -50,6 +99,36 @@ export default function LoginPage() {
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="you@example.com"
                                 />
+                            </label>
+
+                            <label>
+                                Ward
+                                {loadingWards ? (
+                                    <input value="Loading wards..." readOnly />
+                                ) : wards.length === 0 ? (
+                                    <input
+                                        type="number"
+                                        required
+                                        value={wardId}
+                                        onChange={(e) => setWardId(e.target.value)}
+                                        placeholder="Enter ward ID"
+                                    />
+                                ) : (
+                                    <select
+                                        required
+                                        value={wardId}
+                                        onChange={(e) => setWardId(e.target.value)}
+                                    >
+                                        <option value="">Select your ward</option>
+                                        {wards.map((ward) => (
+                                            <option key={ward.id} value={ward.id}>
+                                                {ward.name}
+                                                {ward.constituency ? ` — ${ward.constituency}` : ""}
+                                                {ward.code ? ` (${ward.code})` : ""}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </label>
 
                             <label>
