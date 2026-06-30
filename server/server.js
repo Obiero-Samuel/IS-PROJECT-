@@ -10,8 +10,14 @@ const reportRoutes = require('./routes/reports');
 const authorityRoutes = require('./routes/authority');
 const adminRoutes = require('./routes/admin');
 const summaryRoutes = require('./routes/summary');
+const routingRoutes = require('./routes/routing');
+const officerRoutes = require('./routes/officer');
+const escalationRoutes = require('./routes/escalation');
+const analyticsRoutes = require('./routes/analytics');
+const automationRoutes = require('./routes/automation');
 const cron = require('node-cron');
 const { checkOverdueEscalations } = require('./jobs/escalationOverdueJob');
+const { runWeeklyAnalytics } = require('./jobs/weeklyAnalyticsJob');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,6 +68,13 @@ app.use('/api/authority', authorityRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/summary', summaryRoutes);
 
+// Canonical module routes (kept alongside legacy routes for compatibility)
+app.use('/api/routing', routingRoutes);
+app.use('/api/officer', officerRoutes);
+app.use('/api/escalations', escalationRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/automation', automationRoutes);
+
 // Manual trigger for cron job (admin only, for testing)
 const { verifyToken, requireRole } = require('./middleware/auth');
 app.post('/api/admin/jobs/escalation-overdue', verifyToken, requireRole('admin'), async (req, res, next) => {
@@ -94,11 +107,18 @@ const startServer = async () => {
     await db.query('SELECT 1');
     console.log('✅ Connected to PostgreSQL:', process.env.DB_NAME || 'is_project_db');
 
-    // Schedule weekly cron job (Every Monday at 00:00)
-    cron.schedule('0 0 * * 1', () => {
+    // Deadline monitor cadence: every day at 00:00
+    cron.schedule('0 0 * * *', () => {
       checkOverdueEscalations().catch(console.error);
     });
-    console.log('⏱️  Escalation cron job scheduled (Weekly)');
+
+    // Analytics scheduler cadence: every Monday at 06:00
+    cron.schedule('0 6 * * 1', () => {
+      runWeeklyAnalytics({ triggeredBy: 'system' }).catch(console.error);
+    });
+
+    console.log('⏱️  Escalation cron job scheduled (Daily deadline monitor)');
+    console.log('📊 Weekly analytics cron job scheduled (Mondays at 06:00)');
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
