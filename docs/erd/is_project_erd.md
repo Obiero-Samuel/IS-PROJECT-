@@ -200,3 +200,43 @@ erDiagram
 - **Soft deletes on reference tables** — `authorities` and `wards` use an `is_active` flag instead of hard deletion so historical escalations and reports remain intact.
 - **`set_updated_at()` trigger** — a shared reusable trigger function keeps `updated_at` accurate across `authorities`, `wards`, and `escalations` without duplicating logic.
 - **`ward_id` nullable on `summary_reports`** — a `NULL` ward means the report covers the authority's entire jurisdiction, allowing both granular and aggregate views.
+
+---
+
+## CivicPulse IPO+S Module Flow (Implementation Alignment)
+
+This project follows the requested **Input → Processing → Storage → Output** architecture with role-aware modules:
+
+### 1) Resident flow
+
+- **Input**: `POST /api/reports` from resident-facing submission UI (`client/src/app/reports/new/page.tsx`).
+- **Processing**: JWT + RBAC in `server/middleware/auth.js` and resident auth flow in `server/controllers/authController.js`.
+- **Storage**: `users`, `reports`, `upvotes`, `wards`.
+- **Output**: Public + resident views (`/reports`, `/ward-map`, `/my-reports`) reflect status and engagement.
+
+### 2) Authority Officer flow
+
+- **Input**: Officer access via `/officer` and authority APIs under `server/routes/authority.js`.
+- **Processing**: Authority routing + assignment logic in `server/controllers/authorityController.js` with role enforcement (`requireRole('authority')`).
+- **Storage**: `authorities`, `category_authority_map`, `reports` (+ `status_logs` / `escalations` when enabled).
+- **Output**: Officer queue + status/note actions via officer dashboard.
+
+### 3) Administrator flow
+
+- **Input**: Admin access via `/admin` and admin APIs under `server/routes/admin.js`.
+- **Processing**: User/ward/category/authority management and routing configuration in `server/controllers/adminController.js`.
+- **Storage**: `users`, `categories`, `wards`, `authorities`, `category_authority_map`.
+- **Output**: Admin control panel with role and routing controls.
+
+### 4) Automated System flow
+
+- **Input**: Scheduled job trigger (`node-cron`) in `server/server.js`.
+- **Processing**: Overdue escalation checks + summary generation modules.
+- **Storage**: `summary_reports` (analytics output layer) and escalation-related tables.
+- **Output**: Weekly/periodic operational analytics surfaces (`/analytics`) and escalation monitoring.
+
+### Table naming compatibility notes
+
+- Architectural term **`audit_trail`** maps to implementation table **`status_logs`**.
+- Architectural term **`analytics`** maps to implementation table **`summary_reports`**.
+- Architectural term **`issues`** maps to implementation table **`reports`**.
