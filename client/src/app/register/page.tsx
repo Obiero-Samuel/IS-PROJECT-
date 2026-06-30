@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { getWards, register } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { getAuth, getToken } from "@/lib/auth";
+import { defaultRouteForRole } from "@/lib/roleRouting";
 import type { Ward } from "@/lib/types";
 
 const getQueryParam = (key: string, fallback = "") => {
@@ -27,7 +28,7 @@ export default function RegisterPage() {
 
     useEffect(() => {
         if (getToken()) {
-            router.replace("/my-profile");
+            router.replace(defaultRouteForRole(getAuth()?.user?.role));
         }
     }, [router]);
 

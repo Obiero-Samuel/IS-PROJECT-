@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { getWards, login } from "@/lib/api";
-import { getToken, setAuth } from "@/lib/auth";
+import { getAuth, getToken, setAuth } from "@/lib/auth";
+import { defaultRouteForRole } from "@/lib/roleRouting";
 import type { Ward } from "@/lib/types";
 
 const getQueryParam = (key: string, fallback = "") => {
@@ -14,8 +15,9 @@ const getQueryParam = (key: string, fallback = "") => {
 
 export default function LoginPage() {
     const router = useRouter();
-    const nextPath = getQueryParam("next", "/my-profile");
+    const requestedNextPath = getQueryParam("next", "");
     const initialEmail = getQueryParam("email", "");
+    const [portalRole, setPortalRole] = useState<"resident" | "authority" | "admin">("resident");
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState(initialEmail);
     const [password, setPassword] = useState("");
@@ -27,9 +29,10 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (getToken()) {
-            router.replace("/my-profile");
+            const currentRole = getAuth()?.user?.role;
+            router.replace(requestedNextPath || defaultRouteForRole(currentRole));
         }
-    }, [router]);
+    }, [requestedNextPath, router]);
 
     useEffect(() => {
         const run = async () => {
@@ -52,15 +55,19 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const result = await login(username, email, password, Number(wardId));
+            const result = await login(username, email, password, {
+                role_context: portalRole,
+                ward_id: portalRole === "resident" ? Number(wardId) : undefined,
+            });
             setAuth(result);
-            router.push(nextPath);
+            router.push(requestedNextPath || defaultRouteForRole(result.user.role));
         } catch (err) {
             const message = err instanceof Error ? err.message : "Login failed.";
             setError(message);
 
             if (message.toLowerCase().includes("not verified") || message.toLowerCase().includes("otp")) {
-                router.push(`/verify-email?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}`);
+                const nextForVerification = requestedNextPath || defaultRouteForRole(portalRole);
+                router.push(`/verify-email?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextForVerification)}`);
             }
         } finally {
             setLoading(false);
@@ -74,11 +81,24 @@ export default function LoginPage() {
                 <div className="container">
                     <section className="card stack auth-card">
                         <h1 className="title">Login</h1>
-                        <p className="subtitle">Access your resident account to submit and track reports.</p>
+                        <p className="subtitle">Sign in as resident, authority officer, or administrator.</p>
 
                         {error && <p className="message error">{error}</p>}
 
                         <form onSubmit={handleSubmit}>
+                            <label>
+                                Login portal
+                                <select
+                                    required
+                                    value={portalRole}
+                                    onChange={(e) => setPortalRole(e.target.value as "resident" | "authority" | "admin")}
+                                >
+                                    <option value="resident">Resident</option>
+                                    <option value="authority">Authority Officer</option>
+                                    <option value="admin">Administrator</option>
+                                </select>
+                            </label>
+
                             <label>
                                 Username
                                 <input
@@ -101,35 +121,39 @@ export default function LoginPage() {
                                 />
                             </label>
 
-                            <label>
-                                Ward
-                                {loadingWards ? (
-                                    <input value="Loading wards..." readOnly />
-                                ) : wards.length === 0 ? (
-                                    <input
-                                        type="number"
-                                        required
-                                        value={wardId}
-                                        onChange={(e) => setWardId(e.target.value)}
-                                        placeholder="Enter ward ID"
-                                    />
-                                ) : (
-                                    <select
-                                        required
-                                        value={wardId}
-                                        onChange={(e) => setWardId(e.target.value)}
-                                    >
-                                        <option value="">Select your ward</option>
-                                        {wards.map((ward) => (
-                                            <option key={ward.id} value={ward.id}>
-                                                {ward.name}
-                                                {ward.constituency ? ` — ${ward.constituency}` : ""}
-                                                {ward.code ? ` (${ward.code})` : ""}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                            </label>
+                            {portalRole === "resident" ? (
+                                <label>
+                                    Ward
+                                    {loadingWards ? (
+                                        <input value="Loading wards..." readOnly />
+                                    ) : wards.length === 0 ? (
+                                        <input
+                                            type="number"
+                                            required
+                                            value={wardId}
+                                            onChange={(e) => setWardId(e.target.value)}
+                                            placeholder="Enter ward ID"
+                                        />
+                                    ) : (
+                                        <select
+                                            required
+                                            value={wardId}
+                                            onChange={(e) => setWardId(e.target.value)}
+                                        >
+                                            <option value="">Select your ward</option>
+                                            {wards.map((ward) => (
+                                                <option key={ward.id} value={ward.id}>
+                                                    {ward.name}
+                                                    {ward.constituency ? ` — ${ward.constituency}` : ""}
+                                                    {ward.code ? ` (${ward.code})` : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </label>
+                            ) : (
+                                <p className="muted">Ward is not required for this portal role.</p>
+                            )}
 
                             <label>
                                 Password

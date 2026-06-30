@@ -12,6 +12,7 @@ import type {
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api";
 export const TOKEN_STORAGE_KEY = "is_project_token";
+const AUTH_STORAGE_KEY = "is_project_auth";
 
 type RequestConfig = RequestInit & {
     token?: string | null;
@@ -70,7 +71,22 @@ export function loadStoredToken(): string {
         return "";
     }
 
-    return localStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
+    const directToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (directToken) {
+        return directToken;
+    }
+
+    const authRaw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!authRaw) {
+        return "";
+    }
+
+    try {
+        const parsed = JSON.parse(authRaw) as { token?: string };
+        return parsed.token ?? "";
+    } catch {
+        return "";
+    }
 }
 
 export function storeToken(token: string): void {
@@ -92,11 +108,27 @@ export const register = (username: string, email: string, password: string, ward
         body: JSON.stringify({ username, email, password, ward_id }),
     });
 
-export const login = (username: string, email: string, password: string, ward_id: number) =>
-    request<AuthPayload>("/auth/login", {
+type LoginRoleContext = "resident" | "authority" | "admin";
+
+export const login = (
+    username: string,
+    email: string,
+    password: string,
+    options?: { ward_id?: number; role_context?: LoginRoleContext }
+) => {
+    const body: Record<string, unknown> = { username, email, password };
+    if (typeof options?.ward_id === "number") {
+        body.ward_id = options.ward_id;
+    }
+    if (options?.role_context) {
+        body.role_context = options.role_context;
+    }
+
+    return request<AuthPayload>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ username, email, password, ward_id }),
+        body: JSON.stringify(body),
     });
+};
 
 export const verifyEmailOtp = (email: string, otp: string) =>
     request<VerificationResponse>("/auth/verify-email-otp", {

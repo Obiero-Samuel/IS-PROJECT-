@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { resendVerificationOtp, verifyEmailOtp } from "@/lib/api";
 import { setAuth } from "@/lib/auth";
+import { defaultRouteForRole } from "@/lib/roleRouting";
 
 const getQueryParam = (key: string, fallback = "") => {
     if (typeof window === "undefined") return fallback;
@@ -13,7 +14,7 @@ const getQueryParam = (key: string, fallback = "") => {
 
 export default function VerifyEmailPage() {
     const router = useRouter();
-    const nextPath = getQueryParam("next", "/my-profile");
+    const nextPath = getQueryParam("next", "");
     const email = getQueryParam("email", "");
 
     const [otp, setOtp] = useState("");
@@ -31,7 +32,7 @@ export default function VerifyEmailPage() {
         try {
             const result = await verifyEmailOtp(email, otp);
             setAuth(result);
-            router.push(nextPath);
+            router.push(nextPath || defaultRouteForRole(result.user.role));
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to verify OTP.");
         } finally {
@@ -50,9 +51,8 @@ export default function VerifyEmailPage() {
             const smtpResponse = result.debug?.smtpResponse;
 
             if (debugOtp) {
-                setOtp(debugOtp);
                 setMessage(
-                    `${result.message} (DEV OTP: ${debugOtp})${smtpResponse ? ` — Provider: ${smtpResponse}` : ""}`
+                    `${result.message} (DEV OTP available: ${debugOtp})${smtpResponse ? ` — Provider: ${smtpResponse}` : ""}`
                 );
             } else {
                 setMessage(`${result.message}${smtpResponse ? ` — Provider: ${smtpResponse}` : ""}`);
