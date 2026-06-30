@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import RequireAuth from "@/components/RequireAuth";
 import { apiRequest, loadStoredToken, storeToken } from "@/lib/api";
 import styles from "./page.module.css";
 
@@ -91,107 +92,109 @@ export default function AnalyticsPage() {
   }, [reports]);
 
   return (
-    <DashboardShell
-      title="Analytics Dashboard"
-      subtitle="Generate authority summaries and monitor issue throughput trends."
-      token={token}
-      onTokenChange={setToken}
-      onSaveToken={saveToken}
-    >
-      <section className={styles.generator}>
-        <div className={styles.field}>
-          <label htmlFor="authority-id">Authority ID</label>
-          <input
-            id="authority-id"
-            value={authorityId}
-            onChange={(event) => setAuthorityId(event.target.value)}
-          />
-        </div>
+    <RequireAuth allowedRoles={["admin"]}>
+      <DashboardShell
+        title="Analytics Dashboard"
+        subtitle="Generate authority summaries and monitor issue throughput trends."
+        token={token}
+        onTokenChange={setToken}
+        onSaveToken={saveToken}
+      >
+        <section className={styles.generator}>
+          <div className={styles.field}>
+            <label htmlFor="authority-id">Authority ID</label>
+            <input
+              id="authority-id"
+              value={authorityId}
+              onChange={(event) => setAuthorityId(event.target.value)}
+            />
+          </div>
 
-        <div className={styles.field}>
-          <label htmlFor="ward-id">Ward ID (optional)</label>
-          <input id="ward-id" value={wardId} onChange={(event) => setWardId(event.target.value)} />
-        </div>
+          <div className={styles.field}>
+            <label htmlFor="ward-id">Ward ID (optional)</label>
+            <input id="ward-id" value={wardId} onChange={(event) => setWardId(event.target.value)} />
+          </div>
 
-        <div className={styles.field}>
-          <label htmlFor="report-period">Period</label>
-          <select
-            id="report-period"
-            value={reportPeriod}
-            onChange={(event) => setReportPeriod(event.target.value)}
-          >
-            <option value="weekly">weekly</option>
-            <option value="monthly">monthly</option>
-            <option value="quarterly">quarterly</option>
-            <option value="yearly">yearly</option>
-          </select>
-        </div>
+          <div className={styles.field}>
+            <label htmlFor="report-period">Period</label>
+            <select
+              id="report-period"
+              value={reportPeriod}
+              onChange={(event) => setReportPeriod(event.target.value)}
+            >
+              <option value="weekly">weekly</option>
+              <option value="monthly">monthly</option>
+              <option value="quarterly">quarterly</option>
+              <option value="yearly">yearly</option>
+            </select>
+          </div>
 
-        <div className={styles.field}>
-          <label htmlFor="start-date">Start date</label>
-          <input
-            id="start-date"
-            type="date"
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-          />
-        </div>
+          <div className={styles.field}>
+            <label htmlFor="start-date">Start date</label>
+            <input
+              id="start-date"
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
+          </div>
 
-        <div className={styles.field}>
-          <label htmlFor="end-date">End date</label>
-          <input
-            id="end-date"
-            type="date"
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-          />
-        </div>
+          <div className={styles.field}>
+            <label htmlFor="end-date">End date</label>
+            <input
+              id="end-date"
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </div>
 
-        <div className={styles.buttons}>
-          <button onClick={generateSummary}>Generate</button>
-          <button onClick={loadSummaries}>Load summaries</button>
-        </div>
-      </section>
+          <div className={styles.buttons}>
+            <button onClick={generateSummary}>Generate</button>
+            <button onClick={loadSummaries}>Load summaries</button>
+          </div>
+        </section>
 
-      <p className={styles.message}>{message}</p>
+        <p className={styles.message}>{message}</p>
 
-      <section className={styles.stats}>
-        <article>
-          <h3>Total issues</h3>
-          <p>{totals.total}</p>
-        </article>
-        <article>
-          <h3>Resolved issues</h3>
-          <p>{totals.resolved}</p>
-        </article>
-        <article>
-          <h3>Escalated issues</h3>
-          <p>{totals.escalated}</p>
-        </article>
-      </section>
-
-      <section className={styles.reportGrid}>
-        {reports.map((report) => (
-          <article key={report.id} className={styles.reportCard}>
-            <div className={styles.reportTop}>
-              <p>#{report.id}</p>
-              <span>{report.report_period}</span>
-            </div>
-            <h2>{report.top_category || "No dominant category"}</h2>
-            <p>
-              {report.period_start.slice(0, 10)} to {report.period_end.slice(0, 10)}
-            </p>
-            <ul>
-              <li>Total: {report.total_issues}</li>
-              <li>Open: {report.open_issues}</li>
-              <li>Pending: {report.pending_issues}</li>
-              <li>Resolved: {report.resolved_issues}</li>
-              <li>Escalated: {report.escalated_issues}</li>
-              <li>Avg resolution days: {Number(report.avg_resolution_days).toFixed(2)}</li>
-            </ul>
+        <section className={styles.stats}>
+          <article>
+            <h3>Total issues</h3>
+            <p>{totals.total}</p>
           </article>
-        ))}
-      </section>
-    </DashboardShell>
+          <article>
+            <h3>Resolved issues</h3>
+            <p>{totals.resolved}</p>
+          </article>
+          <article>
+            <h3>Escalated issues</h3>
+            <p>{totals.escalated}</p>
+          </article>
+        </section>
+
+        <section className={styles.reportGrid}>
+          {reports.map((report) => (
+            <article key={report.id} className={styles.reportCard}>
+              <div className={styles.reportTop}>
+                <p>#{report.id}</p>
+                <span>{report.report_period}</span>
+              </div>
+              <h2>{report.top_category || "No dominant category"}</h2>
+              <p>
+                {report.period_start.slice(0, 10)} to {report.period_end.slice(0, 10)}
+              </p>
+              <ul>
+                <li>Total: {report.total_issues}</li>
+                <li>Open: {report.open_issues}</li>
+                <li>Pending: {report.pending_issues}</li>
+                <li>Resolved: {report.resolved_issues}</li>
+                <li>Escalated: {report.escalated_issues}</li>
+                <li>Avg resolution days: {Number(report.avg_resolution_days).toFixed(2)}</li>
+              </ul>
+            </article>
+          ))}
+        </section>
+      </DashboardShell>
+    </RequireAuth>
   );
 }

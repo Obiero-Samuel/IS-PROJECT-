@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import RequireAuth from "@/components/RequireAuth";
 import { apiRequest, loadStoredToken, storeToken } from "@/lib/api";
 import styles from "./page.module.css";
 
@@ -111,94 +112,96 @@ export default function OfficerPage() {
   };
 
   return (
-    <DashboardShell
-      title="Officer Dashboard"
-      subtitle="Review assigned reports, update issue status, and attach response notes."
-      token={token}
-      onTokenChange={setToken}
-      onSaveToken={saveToken}
-    >
-      <section className={styles.controls}>
-        <div className={styles.field}>
-          <label htmlFor="authority-id">Authority ID</label>
-          <input
-            id="authority-id"
-            value={authorityId}
-            onChange={(event) => setAuthorityId(event.target.value)}
-          />
-        </div>
+    <RequireAuth allowedRoles={["authority", "admin"]}>
+      <DashboardShell
+        title="Officer Dashboard"
+        subtitle="Review assigned reports, update issue status, and attach response notes."
+        token={token}
+        onTokenChange={setToken}
+        onSaveToken={saveToken}
+      >
+        <section className={styles.controls}>
+          <div className={styles.field}>
+            <label htmlFor="authority-id">Authority ID</label>
+            <input
+              id="authority-id"
+              value={authorityId}
+              onChange={(event) => setAuthorityId(event.target.value)}
+            />
+          </div>
 
-        <div className={styles.field}>
-          <label htmlFor="status-filter">Status filter</label>
-          <select
-            id="status-filter"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="">All</option>
-            {STATUS_OPTIONS.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div className={styles.field}>
+            <label htmlFor="status-filter">Status filter</label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="">All</option>
+              {STATUS_OPTIONS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <button className={styles.loadButton} onClick={loadReports} disabled={loading}>
-          {loading ? "Loading..." : "Load assigned reports"}
-        </button>
-      </section>
+          <button className={styles.loadButton} onClick={loadReports} disabled={loading}>
+            {loading ? "Loading..." : "Load assigned reports"}
+          </button>
+        </section>
 
-      <p className={styles.feedback}>{feedback || reportCountLabel}</p>
+        <p className={styles.feedback}>{feedback || reportCountLabel}</p>
 
-      <section className={styles.grid}>
-        {reports.map((report) => (
-          <article key={report.id} className={styles.card}>
-            <div className={styles.cardTop}>
-              <p className={styles.tracking}>{report.tracking_number}</p>
-              <span className={styles.status}>{report.status}</span>
-            </div>
-            <h2>{report.title}</h2>
-            <p className={styles.meta}>
-              Ward: {report.ward_name || "Unassigned"} | Logged: {new Date(report.created_at).toLocaleString()}
-            </p>
+        <section className={styles.grid}>
+          {reports.map((report) => (
+            <article key={report.id} className={styles.card}>
+              <div className={styles.cardTop}>
+                <p className={styles.tracking}>{report.tracking_number}</p>
+                <span className={styles.status}>{report.status}</span>
+              </div>
+              <h2>{report.title}</h2>
+              <p className={styles.meta}>
+                Ward: {report.ward_name || "Unassigned"} | Logged: {new Date(report.created_at).toLocaleString()}
+              </p>
 
-            <div className={styles.inlineFields}>
-              <select
-                value={statusDrafts[report.id] || ""}
+              <div className={styles.inlineFields}>
+                <select
+                  value={statusDrafts[report.id] || ""}
+                  onChange={(event) =>
+                    setStatusDrafts((prev) => ({
+                      ...prev,
+                      [report.id]: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Select new status</option>
+                  {STATUS_OPTIONS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => patchStatus(report.id)}>Update status</button>
+              </div>
+
+              <textarea
+                placeholder="Add resolution note"
+                value={noteDrafts[report.id] || ""}
                 onChange={(event) =>
-                  setStatusDrafts((prev) => ({
+                  setNoteDrafts((prev) => ({
                     ...prev,
                     [report.id]: event.target.value,
                   }))
                 }
-              >
-                <option value="">Select new status</option>
-                {STATUS_OPTIONS.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <button onClick={() => patchStatus(report.id)}>Update status</button>
-            </div>
-
-            <textarea
-              placeholder="Add resolution note"
-              value={noteDrafts[report.id] || ""}
-              onChange={(event) =>
-                setNoteDrafts((prev) => ({
-                  ...prev,
-                  [report.id]: event.target.value,
-                }))
-              }
-            />
-            <button className={styles.noteButton} onClick={() => submitNote(report.id)}>
-              Save note
-            </button>
-          </article>
-        ))}
-      </section>
-    </DashboardShell>
+              />
+              <button className={styles.noteButton} onClick={() => submitNote(report.id)}>
+                Save note
+              </button>
+            </article>
+          ))}
+        </section>
+      </DashboardShell>
+    </RequireAuth>
   );
 }

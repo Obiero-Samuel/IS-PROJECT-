@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import NavBar from "@/components/NavBar";
 import styles from "./page.module.css";
 import RequireAuth from "@/components/RequireAuth";
+import { authFromSnapshot, getAuthServerSnapshot, getAuthSnapshot, subscribeAuth } from "@/lib/auth";
 
 export default function Home() {
+  const authRaw = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getAuthServerSnapshot);
+  const auth = authFromSnapshot(authRaw);
+  const role = auth?.user?.role;
+
+  const showOfficerDashboard = role === "authority" || role === "admin";
+  const showAdminDashboards = role === "admin";
+
   return (
     <RequireAuth>
       <NavBar />
@@ -46,7 +55,7 @@ export default function Home() {
             <div className={styles.main}>
               <div className={styles.hero}>
                 <p className={styles.badge}>IS PROJECT CONTROL CENTER</p>
-                <h1>Partner B Dashboards</h1>
+                <h1>Dashboards</h1>
                 <p>
                   Open a role-specific workspace for officers, administrators, or summary analytics.
                   Enter your JWT token on each page to load protected data.
@@ -54,20 +63,36 @@ export default function Home() {
               </div>
 
               <div className={styles.cards}>
-                <Link className={styles.card} href="/officer">
-                  <h2>Officer Dashboard</h2>
-                  <p>Assigned reports, quick status updates, and resolution notes.</p>
-                </Link>
+                {showOfficerDashboard && (
+                  <Link className={styles.card} href="/officer">
+                    <h2>Officer Dashboard</h2>
+                    <p>Assigned reports, quick status updates, and resolution notes.</p>
+                  </Link>
+                )}
 
-                <Link className={styles.card} href="/admin">
-                  <h2>Admin Panel</h2>
-                  <p>Manage users, wards, authorities, and categories from one place.</p>
-                </Link>
+                {showAdminDashboards && (
+                  <Link className={styles.card} href="/admin">
+                    <h2>Admin Panel</h2>
+                    <p>Manage users, wards, authorities, and categories from one place.</p>
+                  </Link>
+                )}
 
-                <Link className={styles.card} href="/analytics">
-                  <h2>Analytics Dashboard</h2>
-                  <p>Summary-report generation and trend snapshots by authority.</p>
-                </Link>
+                {showAdminDashboards && (
+                  <Link className={styles.card} href="/analytics">
+                    <h2>Analytics Dashboard</h2>
+                    <p>Summary-report generation and trend snapshots by authority.</p>
+                  </Link>
+                )}
+
+                {!showOfficerDashboard && !showAdminDashboards && (
+                  <article className={styles.card}>
+                    <h2>Resident Workspace</h2>
+                    <p>
+                      Dashboard access is limited to authority officers and administrators.
+                      Use My reports, Submit issue, and Ward map for resident actions.
+                    </p>
+                  </article>
+                )}
               </div>
             </div>
           </section>

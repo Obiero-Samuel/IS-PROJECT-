@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import RequireAuth from "@/components/RequireAuth";
 import { apiRequest, loadStoredToken, storeToken } from "@/lib/api";
 import styles from "./page.module.css";
 
@@ -193,23 +194,24 @@ export default function AdminPage() {
     };
 
     return (
-        <DashboardShell
-            title="Admin Panel"
-            subtitle="Manage users, categories, wards, and authorities from one command surface."
-            token={token}
-            onTokenChange={setToken}
-            onSaveToken={saveToken}
-        >
-            <div className={styles.topBar}>
-                <button className={styles.refreshButton} onClick={loadAll} disabled={loading}>
-                    {loading ? "Refreshing..." : "Refresh all datasets"}
-                </button>
-                <p className={`${styles.feedback} ${messageClass}`}>
-                    {message || "Use refresh to load admin datasets."}
-                </p>
-            </div>
+        <RequireAuth allowedRoles={["admin"]}>
+            <DashboardShell
+                title="Admin Panel"
+                subtitle="Manage users, categories, wards, and authorities from one command surface."
+                token={token}
+                onTokenChange={setToken}
+                onSaveToken={saveToken}
+            >
+                <div className={styles.topBar}>
+                    <button className={styles.refreshButton} onClick={loadAll} disabled={loading}>
+                        {loading ? "Refreshing..." : "Refresh all datasets"}
+                    </button>
+                    <p className={`${styles.feedback} ${messageClass}`}>
+                        {message || "Use refresh to load admin datasets."}
+                    </p>
+                </div>
 
-            <section className={styles.statsGrid}>
+                <section className={styles.statsGrid}>
                 <article className={styles.statCard}>
                     <p className={styles.statLabel}>Users</p>
                     <p className={styles.statValue}>{totals.users}</p>
@@ -235,9 +237,9 @@ export default function AdminPage() {
                     <p className={styles.statValue}>{totals.authorities}</p>
                     <p className={styles.itemMeta}>Assigned response organizations</p>
                 </article>
-            </section>
+                </section>
 
-            <section className={styles.section}>
+                <section className={styles.section}>
                 <div className={styles.sectionHeader}>
                     <h2>Users</h2>
                     <span className={styles.countBadge}>{users.length}</span>
@@ -298,10 +300,10 @@ export default function AdminPage() {
                         </tbody>
                     </table>
                 </div>
-            </section>
+                </section>
 
-            <div className={styles.sectionGrid}>
-                <section className={styles.section}>
+                <div className={styles.sectionGrid}>
+                    <section className={styles.section}>
                     <div className={styles.sectionHeader}>
                         <h2>Categories</h2>
                         <span className={styles.countBadge}>{categories.length}</span>
@@ -335,7 +337,7 @@ export default function AdminPage() {
                     )}
                 </section>
 
-                <section className={styles.section}>
+                    <section className={styles.section}>
                     <div className={styles.sectionHeader}>
                         <h2>Wards</h2>
                         <span className={styles.countBadge}>{wards.length}</span>
@@ -377,7 +379,7 @@ export default function AdminPage() {
                     )}
                 </section>
 
-                <section className={styles.section}>
+                    <section className={styles.section}>
                     <div className={styles.sectionHeader}>
                         <h2>Authorities</h2>
                         <span className={styles.countBadge}>{authorities.length}</span>
@@ -417,8 +419,9 @@ export default function AdminPage() {
                             ))}
                         </ul>
                     )}
-                </section>
-            </div>
-        </DashboardShell>
+                    </section>
+                </div>
+            </DashboardShell>
+        </RequireAuth>
     );
 }
