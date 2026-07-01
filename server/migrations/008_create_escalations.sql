@@ -1,6 +1,5 @@
 -- =============================================================
 -- Migration 008: Create escalations table
--- Owner: Partner B
 -- Note: FK references reports(id) — Partner A's actual table name
 -- =============================================================
 

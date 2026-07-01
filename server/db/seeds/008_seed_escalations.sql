@@ -7,16 +7,14 @@
 -- =============================================================
 
 WITH report_candidates AS (
-  SELECT id AS report_id, ROW_NUMBER() OVER (ORDER BY id) AS rn
+  SELECT TOP 5 id AS report_id, ROW_NUMBER() OVER (ORDER BY id) AS rn
   FROM reports
   ORDER BY id
-  LIMIT 5
 ),
 seed_user AS (
-  SELECT id AS user_id
+  SELECT TOP 1 id AS user_id
   FROM users
   ORDER BY id
-  LIMIT 1
 ),
 authority_candidates AS (
   SELECT id AS authority_id, ROW_NUMBER() OVER (ORDER BY id) - 1 AS idx

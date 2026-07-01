@@ -1,6 +1,5 @@
 -- =============================================================
 -- Migration 007: Create wards table
--- Owner: Partner B
 -- Description: Administrative wards linked to authorities
 -- =============================================================
 

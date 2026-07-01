@@ -7,16 +7,16 @@
 -- =============================================================
 
 WITH report_candidates AS (
-  SELECT id AS report_id, ROW_NUMBER() OVER (ORDER BY id) AS rn
+  SELECT TOP (20)
+    id AS report_id,
+    ROW_NUMBER() OVER (ORDER BY id) AS rn
   FROM reports
-  ORDER BY id
-  LIMIT 20
 ),
 seed_user AS (
-  SELECT id AS user_id
+  SELECT TOP (1)
+    id AS user_id
   FROM users
   ORDER BY id
-  LIMIT 1
 )
 INSERT INTO status_logs (
   report_id,
@@ -31,7 +31,7 @@ SELECT
   u.user_id,
   NULL,
   'pending',
-  'Seed status log for report #' || r.report_id,
-  NOW() - (r.rn || ' days')::INTERVAL
+  CONCAT('Seed status log for report #', r.report_id),
+  DATEADD(DAY, -r.rn, GETDATE())
 FROM report_candidates r
 CROSS JOIN seed_user u;

@@ -1,6 +1,5 @@
 -- =============================================================
 -- Migration 006: Create authorities table
--- Owner: Partner B
 -- Description: Civic/government bodies that handle escalations
 -- =============================================================
 

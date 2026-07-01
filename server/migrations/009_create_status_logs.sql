@@ -1,34 +1,62 @@
 -- =============================================================
 -- Migration 009: Create status_logs table
--- Owner: Partner B
--- Description: Immutable audit trail for every report status change
+
+-- Description: audit trail for every report status change
 -- Note: FK references reports(id) — Partner A's actual table name
 -- =============================================================
 
-CREATE TABLE IF NOT EXISTS status_logs (
-  id          SERIAL PRIMARY KEY,
-  report_id   INT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-  changed_by  INT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  old_status  VARCHAR(50),
-  new_status  VARCHAR(50) NOT NULL,
-  notes       TEXT,
-  changed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+IF OBJECT_ID('dbo.status_logs', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.status_logs (
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    report_id   INT NOT NULL,
+    changed_by  INT NOT NULL,
+    old_status  VARCHAR(50) NULL,
+    new_status  VARCHAR(50) NOT NULL,
+    notes       NVARCHAR(MAX) NULL,
+    changed_at  DATETIMEOFFSET NOT NULL CONSTRAINT DF_status_logs_changed_at DEFAULT SYSDATETIMEOFFSET(),
+    CONSTRAINT FK_status_logs_report_id FOREIGN KEY (report_id) REFERENCES dbo.reports(id) ON DELETE CASCADE,
+    CONSTRAINT FK_status_logs_changed_by FOREIGN KEY (changed_by) REFERENCES dbo.users(id)
+  );
+END;
 
 -- Intentionally NO updated_at — this table is append-only (immutable audit log)
 
-CREATE INDEX IF NOT EXISTS idx_status_logs_report_id  ON status_logs (report_id);
-CREATE INDEX IF NOT EXISTS idx_status_logs_changed_by ON status_logs (changed_by);
-CREATE INDEX IF NOT EXISTS idx_status_logs_changed_at ON status_logs (changed_at DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_status_logs_report_id' AND object_id = OBJECT_ID('dbo.status_logs'))
+  CREATE INDEX idx_status_logs_report_id  ON dbo.status_logs (report_id);
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_status_logs_changed_by' AND object_id = OBJECT_ID('dbo.status_logs'))
+  CREATE INDEX idx_status_logs_changed_by ON dbo.status_logs (changed_by);
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_status_logs_changed_at' AND object_id = OBJECT_ID('dbo.status_logs'))
+  CREATE INDEX idx_status_logs_changed_at ON dbo.status_logs (changed_at DESC);
 
 -- Prevent UPDATE and DELETE to enforce immutability
-CREATE OR REPLACE RULE no_update_status_logs AS
-  ON UPDATE TO status_logs DO INSTEAD NOTHING;
+IF OBJECT_ID('dbo.trg_no_update_status_logs', 'TR') IS NOT NULL
+  DROP TRIGGER dbo.trg_no_update_status_logs;
+GO
+CREATE TRIGGER dbo.trg_no_update_status_logs
+ON dbo.status_logs
+INSTEAD OF UPDATE
+AS
+BEGIN
+  RETURN;
+END;
+GO
 
-CREATE OR REPLACE RULE no_delete_status_logs AS
-  ON DELETE TO status_logs DO INSTEAD NOTHING;
+IF OBJECT_ID('dbo.trg_no_delete_status_logs', 'TR') IS NOT NULL
+  DROP TRIGGER dbo.trg_no_delete_status_logs;
+GO
+CREATE TRIGGER dbo.trg_no_delete_status_logs
+ON dbo.status_logs
+INSTEAD OF DELETE
+AS
+BEGIN
+  RETURN;
+END;
+GO
 
-COMMENT ON TABLE  status_logs            IS 'Append-only audit log of every status change made to a report';
-COMMENT ON COLUMN status_logs.old_status IS 'Status before change; NULL = initial creation event';
-COMMENT ON COLUMN status_logs.new_status IS 'Status after the change';
-COMMENT ON COLUMN status_logs.notes      IS 'Optional reason or context for the status transition';
+-- Append-only audit log of every status change made to a report
+-- old_status: Status before change; NULL = initial creation event
+-- new_status: Status after the change
+-- notes: Optional reason or context for the status transition

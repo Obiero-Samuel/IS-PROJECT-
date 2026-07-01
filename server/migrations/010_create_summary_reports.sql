@@ -1,6 +1,6 @@
 -- =============================================================
 -- Migration 010: Create summary_reports table
--- Owner: Partner B
+-- 
 -- Description: Periodic aggregated reports per ward/authority
 -- =============================================================
 
