@@ -16,6 +16,7 @@ const getQueryParam = (key: string, fallback = "") => {
 export default function RegisterPage() {
     const router = useRouter();
     const nextPath = getQueryParam("next", "/my-profile");
+    const [portalRole, setPortalRole] = useState<"resident" | "authority">("resident");
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -54,7 +55,10 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
-            await register(username, email, password, Number(wardId));
+            await register(username, email, password, {
+                role_context: portalRole,
+                ward_id: portalRole === "resident" ? Number(wardId) : undefined,
+            });
             setSuccessMessage("Registration successful. Check your email for OTP verification, then login and verify.");
             router.push(`/login?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email)}`);
         } catch (err) {
@@ -71,12 +75,24 @@ export default function RegisterPage() {
                 <div className="container">
                     <section className="card stack auth-card">
                         <h1 className="title">Create account</h1>
-                        <p className="subtitle">Join as a resident and start reporting local issues.</p>
+                        <p className="subtitle">Join as a resident or authority officer and start using the platform.</p>
 
                         {successMessage && <p className="message success">{successMessage}</p>}
                         {error && <p className="message error">{error}</p>}
 
                         <form onSubmit={handleSubmit}>
+                            <label>
+                                Signup role
+                                <select
+                                    required
+                                    value={portalRole}
+                                    onChange={(e) => setPortalRole(e.target.value as "resident" | "authority")}
+                                >
+                                    <option value="resident">Resident</option>
+                                    <option value="authority">Authority Officer</option>
+                                </select>
+                            </label>
+
                             <label>
                                 Username
                                 <input
@@ -111,35 +127,39 @@ export default function RegisterPage() {
                                 />
                             </label>
 
-                            <label>
-                                Ward
-                                {loadingWards ? (
-                                    <input value="Loading wards..." readOnly />
-                                ) : wards.length === 0 ? (
-                                    <input
-                                        type="number"
-                                        required
-                                        value={wardId}
-                                        onChange={(e) => setWardId(e.target.value)}
-                                        placeholder="Enter ward ID"
-                                    />
-                                ) : (
-                                    <select
-                                        required
-                                        value={wardId}
-                                        onChange={(e) => setWardId(e.target.value)}
-                                    >
-                                        <option value="">Select your ward</option>
-                                        {wards.map((ward) => (
-                                            <option key={ward.id} value={ward.id}>
-                                                {ward.name}
-                                                {ward.constituency ? ` — ${ward.constituency}` : ""}
-                                                {ward.code ? ` (${ward.code})` : ""}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                            </label>
+                            {portalRole === "resident" ? (
+                                <label>
+                                    Ward
+                                    {loadingWards ? (
+                                        <input value="Loading wards..." readOnly />
+                                    ) : wards.length === 0 ? (
+                                        <input
+                                            type="number"
+                                            required
+                                            value={wardId}
+                                            onChange={(e) => setWardId(e.target.value)}
+                                            placeholder="Enter ward ID"
+                                        />
+                                    ) : (
+                                        <select
+                                            required
+                                            value={wardId}
+                                            onChange={(e) => setWardId(e.target.value)}
+                                        >
+                                            <option value="">Select your ward</option>
+                                            {wards.map((ward) => (
+                                                <option key={ward.id} value={ward.id}>
+                                                    {ward.name}
+                                                    {ward.constituency ? ` — ${ward.constituency}` : ""}
+                                                    {ward.code ? ` (${ward.code})` : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </label>
+                            ) : (
+                                <p className="muted">Ward is not required for authority officer signup.</p>
+                            )}
 
                             <button type="submit" className="primary" disabled={loading}>
                                 {loading ? "Creating account..." : "Register"}

@@ -102,11 +102,29 @@ export function storeToken(token: string): void {
     localStorage.setItem(TOKEN_STORAGE_KEY, token.trim());
 }
 
-export const register = (username: string, email: string, password: string, ward_id: number) =>
-    request<RegisterResponse>("/auth/register", {
+type RegisterRoleContext = "resident" | "authority";
+
+export const register = (
+    username: string,
+    email: string,
+    password: string,
+    options?: { ward_id?: number; role_context?: RegisterRoleContext }
+) => {
+    const body: Record<string, unknown> = { username, email, password };
+
+    if (typeof options?.ward_id === "number") {
+        body.ward_id = options.ward_id;
+    }
+
+    if (options?.role_context) {
+        body.role_context = options.role_context;
+    }
+
+    return request<RegisterResponse>("/auth/register", {
         method: "POST",
-        body: JSON.stringify({ username, email, password, ward_id }),
+        body: JSON.stringify(body),
     });
+};
 
 type LoginRoleContext = "resident" | "authority" | "admin";
 

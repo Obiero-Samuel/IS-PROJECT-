@@ -170,21 +170,36 @@ const signToken = (user) => {
 // ---------------------------------------------------------------------------
 const register = async (req, res, next) => {
   try {
-    const { username, email, password, ward_id } = req.body;
+    const { username, email, password, ward_id, role_context } = req.body;
     const normalizedEmail = normalizeEmail(email);
+    const requestedRole = typeof role_context === 'string' ? role_context.trim().toLowerCase() : 'resident';
 
     // Basic validation
-    if (!username || !normalizedEmail || !password || !ward_id) {
-      return res.status(400).json({ error: { message: 'username, email, password, and ward_id are required.' } });
+    if (!username || !normalizedEmail || !password) {
+      return res.status(400).json({ error: { message: 'username, email, and password are required.' } });
     }
+
+    if (!['resident', 'authority'].includes(requestedRole)) {
+      return res.status(400).json({ error: { message: 'role_context must be resident or authority.' } });
+    }
+
     if (password.length < 8) {
       return res.status(400).json({ error: { message: 'Password must be at least 8 characters.' } });
     }
 
-    // Check ward exists
-    const wardCheck = await db.query('SELECT id FROM wards WHERE id = $1', [ward_id]);
-    if (wardCheck.rows.length === 0) {
-      return res.status(400).json({ error: { message: 'Invalid ward_id.' } });
+    const residentWardId = Number(ward_id);
+    if (requestedRole === 'resident') {
+      if (!ward_id || !Number.isInteger(residentWardId) || residentWardId <= 0) {
+        return res.status(400).json({ error: { message: 'ward_id is required for resident registration.' } });
+      }
+    }
+
+    if (requestedRole === 'resident') {
+      // Check ward exists
+      const wardCheck = await db.query('SELECT id FROM wards WHERE id = $1', [residentWardId]);
+      if (wardCheck.rows.length === 0) {
+        return res.status(400).json({ error: { message: 'Invalid ward_id.' } });
+      }
     }
 
     // Check duplicate email or username
@@ -202,9 +217,15 @@ const register = async (req, res, next) => {
     // Insert user
     const result = await db.query(
       `INSERT INTO users (username, email, password_hash, role, ward_id, is_email_verified)
-       VALUES ($1, $2, $3, 'resident', $4, FALSE)
+       VALUES ($1, $2, $3, $4, $5, FALSE)
        RETURNING id, username, email, role, ward_id, created_at`,
-      [username, normalizedEmail, password_hash, ward_id]
+      [
+        username,
+        normalizedEmail,
+        password_hash,
+        requestedRole,
+        requestedRole === 'resident' ? residentWardId : null,
+      ]
     );
 
     const user = result.rows[0];
