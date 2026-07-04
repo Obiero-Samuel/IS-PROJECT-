@@ -4,12 +4,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import NavBar from "@/components/NavBar";
 import RequireAuth from "@/components/RequireAuth";
 import { getMyProfile, toPublicAssetUrl, updateMyProfile } from "@/lib/api";
-import { getAuth, getToken, setAuth } from "@/lib/auth";
+import { getAuth, setAuth } from "@/lib/auth";
 import type { ProfileEditsMeta, UserProfile } from "@/lib/types";
 import styles from "./profile.module.css";
 
@@ -21,7 +20,6 @@ const EMPTY_EDIT_META: ProfileEditsMeta = {
 };
 
 export default function MyProfilePage() {
-    const router = useRouter();
     // Read current auth user for fallback display values (e.g., avatar initial).
     const authUser = getAuth()?.user;
 
@@ -48,19 +46,12 @@ export default function MyProfilePage() {
 
     useEffect(() => {
         const run = async () => {
-            // Profile API is private, so user must be authenticated.
-            const token = getToken();
-            if (!token) {
-                router.replace("/register?next=%2Fmy-profile");
-                return;
-            }
-
             setLoading(true);
             setError(null);
 
             try {
                 // Load profile + edit counters from backend.
-                const result = await getMyProfile(token);
+                const result = await getMyProfile();
                 setProfile(result.profile);
                 setEditMeta(result.profileEdits);
 
@@ -79,7 +70,7 @@ export default function MyProfilePage() {
         };
 
         void run();
-    }, [router]);
+    }, []);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         // Keep form submit in React flow (no page refresh).
@@ -92,17 +83,11 @@ export default function MyProfilePage() {
             return;
         }
 
-        const token = getToken();
-        if (!token) {
-            router.replace("/register?next=%2Fmy-profile");
-            return;
-        }
-
         setSaving(true);
 
         try {
             // Send latest edited fields and optional photo upload.
-            const result = await updateMyProfile(token, {
+            const result = await updateMyProfile({
                 full_name: fullName,
                 email,
                 phone_number: phoneNumber,
@@ -113,7 +98,7 @@ export default function MyProfilePage() {
             });
 
             // Backend can return refreshed auth user info; keep local auth store synchronized.
-            setAuth({ token: result.token, user: result.user });
+            setAuth({ user: result.user });
             // Refresh profile card and edit counter details from response.
             setProfile(result.profile);
             setEditMeta(result.profileEdits);
@@ -164,6 +149,7 @@ export default function MyProfilePage() {
                                                 height={132}
                                                 className={styles.avatar}
                                                 sizes="132px"
+                                                unoptimized
                                             />
                                         ) : (
                                             // Fallback avatar is first letter of name/username.

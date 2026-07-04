@@ -4,6 +4,7 @@
  */
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const path = require('path');
 require('dotenv').config();
@@ -26,8 +27,39 @@ const { runWeeklyAnalytics } = require('./jobs/weeklyAnalyticsJob');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const parseAllowedOrigins = () => {
+  const raw = process.env.CORS_ORIGINS || process.env.CLIENT_ORIGIN || 'http://localhost:3000';
+  return raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+};
+
+const allowedOrigins = parseAllowedOrigins();
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow same-origin/server-to-server calls with no Origin header.
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    const corsError = new Error(`CORS blocked for origin: ${origin}`);
+    corsError.status = 403;
+    callback(corsError);
+  },
+  credentials: true,
+};
+
 // Keep middleware order predictable: CORS -> body parsers -> logger.
-app.use(cors());
+app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
@@ -124,6 +156,7 @@ const startServer = async () => {
 
     console.log('⏱️  Escalation cron job scheduled (Daily deadline monitor)');
     console.log('📊 Weekly analytics cron job scheduled (Mondays at 06:00)');
+    console.log(`🌐 Credentialed CORS origins: ${allowedOrigins.join(', ')}`);
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

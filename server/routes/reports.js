@@ -19,7 +19,8 @@ const {
   getReports,
   getMyReports,
   getReportById,
-  upvoteReport
+  upvoteReport,
+  deleteMyReport
 } = require('../controllers/reportController');
 
 // --- Multer upload config ---------------------------------------------------
@@ -73,6 +74,9 @@ router.post('/', verifyToken, requireRole('resident'), upload.single('photo'), c
 
 // Authenticated: toggle upvote on selected report.
 router.post('/:id/upvote', verifyToken, upvoteReport);
+
+// Resident-only: delete own report once.
+router.delete('/:id', verifyToken, requireRole('resident'), deleteMyReport);
 
 // Export router for server mount.
 module.exports = router;

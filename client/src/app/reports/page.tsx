@@ -9,7 +9,6 @@ import Image from "next/image";
 import NavBar from "@/components/NavBar";
 import RequireAuth from "@/components/RequireAuth";
 import { getPublicReports, toPublicAssetUrl, toggleUpvote } from "@/lib/api";
-import { getToken } from "@/lib/auth";
 import type { ReportItem } from "@/lib/types";
 
 export default function PublicReportsPage() {
@@ -37,18 +36,11 @@ export default function PublicReportsPage() {
     }, []);
 
     const handleUpvote = async (reportId: number) => {
-        // Upvoting requires logged-in session.
-        const token = getToken();
-        if (!token) {
-            setError("Please login to upvote reports.");
-            return;
-        }
-
         setError(null);
         setUpvotingId(reportId);
 
         try {
-            const result = await toggleUpvote(token, reportId);
+            const result = await toggleUpvote(reportId);
             // Optimistically update local list with latest upvote count from server.
             setReports((current) =>
                 current.map((report) =>
@@ -102,6 +94,7 @@ export default function PublicReportsPage() {
                                             width={1200}
                                             height={680}
                                             sizes="(max-width: 768px) 100vw, 50vw"
+                                            unoptimized
                                         />
                                     )}
 

@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import RequireAuth from "@/components/RequireAuth";
-import { apiRequest, loadStoredToken, storeToken } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import styles from "./page.module.css";
 
 // Shape of summary reports returned by analytics endpoints.
@@ -28,8 +28,7 @@ type SummaryReport = {
 };
 
 export default function AnalyticsPage() {
-  // Token + feedback + loaded summary collection.
-  const [token, setToken] = useState(() => loadStoredToken());
+  // Feedback + loaded summary collection.
   const [message, setMessage] = useState("");
   const [reports, setReports] = useState<SummaryReport[]>([]);
 
@@ -39,12 +38,6 @@ export default function AnalyticsPage() {
   const [reportPeriod, setReportPeriod] = useState("monthly");
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-12-31");
-
-  const saveToken = () => {
-    // Save token entered in shell card for subsequent analytics API calls.
-    storeToken(token);
-    setMessage("Token saved locally.");
-  };
 
   const generateSummary = async () => {
     // Basic validation before request.
@@ -57,7 +50,6 @@ export default function AnalyticsPage() {
       // Generate a new summary artifact for selected authority/time window.
       await apiRequest<{ report: SummaryReport }>("/summary/generate", {
         method: "POST",
-        token,
         body: {
           authority_id: Number(authorityId),
           ward_id: wardId ? Number(wardId) : undefined,
@@ -79,9 +71,7 @@ export default function AnalyticsPage() {
     try {
       // Optionally scope list by authority ID.
       const query = authorityId ? `?authority_id=${authorityId}` : "";
-      const result = await apiRequest<{ reports: SummaryReport[] }>(`/summary${query}`, {
-        token,
-      });
+      const result = await apiRequest<{ reports: SummaryReport[] }>(`/summary${query}`);
       setReports(result.reports);
       setMessage("Summary reports loaded.");
     } catch (error) {
@@ -105,13 +95,11 @@ export default function AnalyticsPage() {
 
   return (
     <RequireAuth allowedRoles={["admin"]}>
-      {/* Shared dashboard shell includes navigation and token card. */}
+      {/* Shared dashboard shell includes navigation. */}
       <DashboardShell
         title="Analytics Dashboard"
         subtitle="Generate authority summaries and monitor issue throughput trends."
-        token={token}
-        onTokenChange={setToken}
-        onSaveToken={saveToken}
+        showEyebrow={false}
       >
         {/* Generation/filter controls. */}
         <section className={styles.generator}>

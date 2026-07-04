@@ -47,7 +47,7 @@ export default function VerifyEmailPage() {
             // Successful verify returns session payload.
             const result = await verifyEmailOtp(email, otp);
             // Save session and redirect into user workspace.
-            setAuth(result);
+            setAuth({ user: result.user });
             router.push(nextPath || defaultRouteForRole(result.user.role));
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to verify OTP.");

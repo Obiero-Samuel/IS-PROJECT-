@@ -24,6 +24,7 @@ const checkOverdueEscalations = async () => {
         LEFT JOIN category_authority_map cam
           ON cam.category_id = r.category_id
          AND cam.authority_id = e.authority_id
+        WHERE r.resident_deleted_at IS NULL
       ),
       updated AS (
         UPDATE escalations e

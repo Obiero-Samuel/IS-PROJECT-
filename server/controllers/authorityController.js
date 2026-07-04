@@ -77,7 +77,7 @@ const getAssignedReports = async (req, res, next) => {
     }
 
     // Build optional filters incrementally.
-    const conditions = ['cam.authority_id = $1'];
+    const conditions = ['r.resident_deleted_at IS NULL', 'cam.authority_id = $1'];
     const params = [authorityId];
 
     const statusFilters = parseStatusFilter(req.query.status);
@@ -251,6 +251,7 @@ const updateReportStatus = async (req, res, next) => {
        FROM reports r
        JOIN category_authority_map cam ON cam.category_id = r.category_id
        WHERE r.id = $1
+         AND r.resident_deleted_at IS NULL
          AND cam.authority_id = $2
        LIMIT 1`,
       [reportId, authorityId]
@@ -265,7 +266,7 @@ const updateReportStatus = async (req, res, next) => {
 
     // Update canonical report state.
     await db.query(
-      'UPDATE reports SET status = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE reports SET status = $1, updated_at = NOW() WHERE id = $2 AND resident_deleted_at IS NULL',
       [status, reportId]
     );
 
@@ -310,6 +311,7 @@ const addResolutionNote = async (req, res, next) => {
        FROM reports r
        JOIN category_authority_map cam ON cam.category_id = r.category_id
        WHERE r.id = $1
+         AND r.resident_deleted_at IS NULL
          AND cam.authority_id = $2
        LIMIT 1`,
       [reportId, authorityId]
@@ -348,6 +350,15 @@ const createEscalation = async (req, res, next) => {
 
     if (!report_id || !authority_id || !reason) {
       return res.status(400).json({ error: { message: 'report_id, authority_id, and reason required' } });
+    }
+
+    const reportCheck = await db.query(
+      'SELECT id FROM reports WHERE id = $1 AND resident_deleted_at IS NULL',
+      [report_id]
+    );
+
+    if (reportCheck.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Report not found or no longer available.' } });
     }
 
     // Create escalation, then mirror it to audit trail.
@@ -408,7 +419,7 @@ const getEscalationsForAuthority = async (req, res, next) => {
 
     // Optional multi-value status filter.
     const escalationStatuses = parseStatusFilter(req.query.status);
-    const conditions = ['e.authority_id = $1'];
+    const conditions = ['e.authority_id = $1', 'r.resident_deleted_at IS NULL'];
     const params = [authorityId];
 
     if (escalationStatuses.length > 0) {
@@ -470,7 +481,11 @@ const updateEscalationStatus = async (req, res, next) => {
     }
 
     const previousRes = await db.query(
-      'SELECT id, report_id, status FROM escalations WHERE id = $1',
+      `SELECT e.id, e.report_id, e.status
+       FROM escalations e
+       JOIN reports r ON r.id = e.report_id
+       WHERE e.id = $1
+         AND r.resident_deleted_at IS NULL`,
       [escalationId]
     );
     if (previousRes.rows.length === 0) {

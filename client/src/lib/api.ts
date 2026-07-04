@@ -14,6 +14,7 @@ import type {
     AdminReportsResponse,
     AuthPayload,
     Category,
+    DeleteMyReportResponse,
     OfficerEscalationsResponse,
     OfficerQueueResponse,
     ReportLifecycleStatus,
@@ -28,10 +29,6 @@ import type {
 
 // Base backend URL used by all frontend API calls.
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api";
-// Legacy token-only storage key used by dashboard token card.
-export const TOKEN_STORAGE_KEY = "is_project_token";
-// Full auth payload storage key used by login/session flows.
-const AUTH_STORAGE_KEY = "is_project_auth";
 
 type RequestConfig = RequestInit & {
     token?: string | null;
@@ -53,7 +50,6 @@ const toErrorMessage = (payload: unknown, fallback: string) => {
 };
 
 const request = async <T>(path: string, config: RequestConfig = {}): Promise<T> => {
-    // Start with existing headers so callers can still pass custom values.
     const headers = new Headers(config.headers);
 
     // Let browser set multipart boundary for FormData.
@@ -61,26 +57,23 @@ const request = async <T>(path: string, config: RequestConfig = {}): Promise<T> 
         headers.set("Content-Type", "application/json");
     }
 
-    // Attach Bearer token when this request requires authentication.
+    // Optional legacy Bearer support (cookie session is primary).
     if (config.token) {
         headers.set("Authorization", `Bearer ${config.token}`);
     }
 
-    // Execute request to backend API.
     const response = await fetch(`${API_BASE_URL}${path}`, {
         ...config,
         headers,
+        credentials: "include",
     });
 
-    // Try to parse JSON response body; use empty object if response is not JSON.
     const payload = await response.json().catch(() => ({}));
 
-    // Throw a normalized Error for non-success statuses.
     if (!response.ok) {
         throw new Error(toErrorMessage(payload, `Request failed with status ${response.status}`));
     }
 
-    // Return typed payload so callers get compile-time type help.
     return payload as T;
 };
 
@@ -111,10 +104,10 @@ const requestBinary = async (path: string, config: RequestConfig = {}) => {
         headers.set("Authorization", `Bearer ${config.token}`);
     }
 
-    // Shared binary-download flow (auth + filename extraction).
     const response = await fetch(`${API_BASE_URL}${path}`, {
         ...config,
         headers,
+        credentials: "include",
     });
 
     if (!response.ok) {
@@ -126,11 +119,10 @@ const requestBinary = async (path: string, config: RequestConfig = {}) => {
     const contentType = response.headers.get("content-type") ?? "application/octet-stream";
     const filename = extractFilenameFromContentDisposition(response.headers.get("content-disposition"));
 
-    // Return file data + metadata to support browser downloads.
     return { blob, filename, contentType };
 };
 
-// Small generic wrapper for endpoint calls not covered by specific helpers below.
+// Generic wrapper for endpoints not covered by dedicated helpers.
 export async function apiRequest<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
     const { method = "GET", token, body } = options;
     return request<T>(endpoint, {
@@ -143,40 +135,34 @@ export async function apiRequest<T>(endpoint: string, options: ApiRequestOptions
 // -----------------------------
 // Admin helpers: users, mappings, and weekly exports.
 // -----------------------------
-export const getAdminUsers = (token: string) =>
-    request<AdminUsersResponse>("/admin/users", { token });
+export const getAdminUsers = () =>
+    request<AdminUsersResponse>("/admin/users");
 
 export const updateAdminUserLifecycle = (
-    token: string,
     userId: number,
     payload: { is_active: boolean; deactivation_reason?: string }
 ) =>
     request<AdminUserLifecycleResponse>(`/admin/users/${userId}/lifecycle`, {
         method: "PATCH",
-        token,
         body: JSON.stringify(payload),
     });
 
-export const getCategoryAuthorityMappings = (token: string) =>
-    request<CategoryAuthorityDeadlineListResponse>("/admin/category-authority-map", { token });
+export const getCategoryAuthorityMappings = () =>
+    request<CategoryAuthorityDeadlineListResponse>("/admin/category-authority-map");
 
 export const saveCategoryAuthorityDeadline = (
-    token: string,
     payload: { category_id: number; authority_id: number; response_deadline_days: number }
 ) =>
     request<CategoryAuthorityDeadlineSaveResponse>("/admin/category-authority-map", {
         method: "POST",
-        token,
         body: JSON.stringify(payload),
     });
 
 export const deleteCategoryAuthorityMapping = (
-    token: string,
     payload: { category_id: number; authority_id: number }
 ) =>
     request<CategoryAuthorityDeadlineDeleteResponse>("/admin/category-authority-map", {
         method: "DELETE",
-        token,
         body: JSON.stringify(payload),
     });
 
@@ -186,7 +172,7 @@ type AdminWeeklyExportsQuery = {
     limit?: number;
 };
 
-export const getAdminWeeklyExports = (token: string, queryParams: AdminWeeklyExportsQuery = {}) => {
+export const getAdminWeeklyExports = (queryParams: AdminWeeklyExportsQuery = {}) => {
     const query = new URLSearchParams();
 
     if (typeof queryParams.authority_id === "number") query.set("authority_id", String(queryParams.authority_id));
@@ -194,11 +180,10 @@ export const getAdminWeeklyExports = (token: string, queryParams: AdminWeeklyExp
     if (typeof queryParams.limit === "number") query.set("limit", String(queryParams.limit));
 
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    return request<AdminWeeklyExportsResponse>(`/admin/weekly-exports${suffix}`, { token });
+    return request<AdminWeeklyExportsResponse>(`/admin/weekly-exports${suffix}`);
 };
 
 export const generateAdminWeeklyExport = (
-    token: string,
     payload: {
         authority_id: number;
         ward_id?: number;
@@ -209,56 +194,18 @@ export const generateAdminWeeklyExport = (
 ) =>
     request<AdminWeeklyExportGenerateResponse>("/admin/weekly-exports", {
         method: "POST",
-        token,
         body: JSON.stringify(payload),
     });
 
-export const downloadAdminWeeklyExport = (token: string, exportId: number) =>
+export const downloadAdminWeeklyExport = (exportId: number) =>
     requestBinary(`/admin/weekly-exports/${exportId}/download`, {
         method: "GET",
-        token,
     });
 
-// Read token from storage (supports both legacy token key and full auth payload key).
-export function loadStoredToken(): string {
-    if (typeof window === "undefined") {
-        return "";
-    }
-
-    // Support legacy auth payload storage.
-    const directToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (directToken) {
-        return directToken;
-    }
-
-    const authRaw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!authRaw) {
-        return "";
-    }
-
-    try {
-        const parsed = JSON.parse(authRaw) as { token?: string };
-        return parsed.token ?? "";
-    } catch {
-        // Invalid JSON should fail safely instead of crashing the app.
-        return "";
-    }
-}
-
-export function storeToken(token: string): void {
-    if (typeof window === "undefined") {
-        return;
-    }
-
-    // Empty token means clear stored auth token.
-    if (!token.trim()) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
-        return;
-    }
-
-    // Save trimmed token to avoid accidental whitespace issues.
-    localStorage.setItem(TOKEN_STORAGE_KEY, token.trim());
-}
+export const logout = () =>
+    request<{ message: string }>("/auth/logout", {
+        method: "POST",
+    });
 
 type RegisterRoleContext = "resident" | "authority";
 
@@ -316,8 +263,8 @@ export const verifyEmailOtp = (email: string, otp: string) =>
     });
 
 // Read current user's profile data.
-export const getMyProfile = (token: string) =>
-    request<ProfileResponse>("/auth/profile", { token });
+export const getMyProfile = () =>
+    request<ProfileResponse>("/auth/profile");
 
 type UpdateMyProfilePayload = {
     full_name: string;
@@ -330,7 +277,7 @@ type UpdateMyProfilePayload = {
 };
 
 // Update profile fields (multipart payload allows optional image upload).
-export const updateMyProfile = (token: string, payload: UpdateMyProfilePayload) => {
+export const updateMyProfile = (payload: UpdateMyProfilePayload) => {
     const formData = new FormData();
     formData.set("full_name", payload.full_name);
     formData.set("email", payload.email);
@@ -343,7 +290,6 @@ export const updateMyProfile = (token: string, payload: UpdateMyProfilePayload) 
 
     return request<UpdateProfileResponse>("/auth/profile", {
         method: "PATCH",
-        token,
         body: formData,
     });
 };
@@ -406,8 +352,14 @@ export const getPublicReports = (params?: { page?: number; limit?: number; statu
 };
 
 // Load reports submitted by currently logged-in user.
-export const getMyReports = (token: string) =>
-    request<ReportsResponse>("/reports/mine", { token });
+export const getMyReports = () =>
+    request<ReportsResponse>("/reports/mine");
+
+// Resident-only: delete own report once.
+export const deleteMyReport = (reportId: number) =>
+    request<DeleteMyReportResponse>(`/reports/${reportId}`, {
+        method: "DELETE",
+    });
 
 type OfficerQueueParams = {
     status?: string | string[];
@@ -417,7 +369,6 @@ type OfficerQueueParams = {
 };
 
 const appendMultiValueParam = (query: URLSearchParams, key: string, value?: string | string[]) => {
-    // Backend expects CSV for multi-select filters.
     if (!value) return;
 
     if (Array.isArray(value)) {
@@ -438,7 +389,7 @@ const appendMultiValueParam = (query: URLSearchParams, key: string, value?: stri
     }
 };
 
-export const getOfficerQueue = (token: string, params: OfficerQueueParams = {}) => {
+export const getOfficerQueue = (params: OfficerQueueParams = {}) => {
     const query = new URLSearchParams();
 
     appendMultiValueParam(query, "status", params.status);
@@ -454,26 +405,23 @@ export const getOfficerQueue = (token: string, params: OfficerQueueParams = {}) 
     }
 
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    return request<OfficerQueueResponse>(`/officer/queue${suffix}`, { token });
+    return request<OfficerQueueResponse>(`/officer/queue${suffix}`);
 };
 
 // Update report status from officer queue tools.
 export const updateOfficerQueueStatus = (
-    token: string,
     reportId: number,
     payload: { status: ReportLifecycleStatus; notes?: string }
 ) =>
     request<{ message: string; new_status: ReportLifecycleStatus }>(`/officer/queue/${reportId}/status`, {
         method: "PATCH",
-        token,
         body: JSON.stringify(payload),
     });
 
 // Save officer note on a specific report.
-export const addOfficerQueueNote = (token: string, reportId: number, notes: string) =>
+export const addOfficerQueueNote = (reportId: number, notes: string) =>
     request<{ message: string }>(`/officer/queue/${reportId}/notes`, {
         method: "POST",
-        token,
         body: JSON.stringify({ notes }),
     });
 
@@ -481,12 +429,12 @@ type OfficerEscalationParams = {
     status?: string | string[];
 };
 
-export const getOfficerEscalations = (token: string, params: OfficerEscalationParams = {}) => {
+export const getOfficerEscalations = (params: OfficerEscalationParams = {}) => {
     const query = new URLSearchParams();
     appendMultiValueParam(query, "status", params.status);
     const suffix = query.toString() ? `?${query.toString()}` : "";
 
-    return request<OfficerEscalationsResponse>(`/escalations${suffix}`, { token });
+    return request<OfficerEscalationsResponse>(`/escalations${suffix}`);
 };
 
 type AdminReportsQuery = {
@@ -501,61 +449,55 @@ type AdminReportsQuery = {
     search?: string;
 };
 
-export const getAdminReports = (token: string, queryParams: AdminReportsQuery = {}) => {
+export const getAdminReports = (queryParams: AdminReportsQuery = {}) => {
     const query = new URLSearchParams();
 
-    if (typeof queryParams.page === 'number') query.set('page', String(queryParams.page));
-    if (typeof queryParams.limit === 'number') query.set('limit', String(queryParams.limit));
-    if (typeof queryParams.ward_id === 'number') query.set('ward_id', String(queryParams.ward_id));
-    if (typeof queryParams.category_id === 'number') query.set('category_id', String(queryParams.category_id));
-    if (typeof queryParams.authority_id === 'number') query.set('authority_id', String(queryParams.authority_id));
-    if (queryParams.from_date?.trim()) query.set('from_date', queryParams.from_date.trim());
-    if (queryParams.to_date?.trim()) query.set('to_date', queryParams.to_date.trim());
-    if (queryParams.search?.trim()) query.set('search', queryParams.search.trim());
+    if (typeof queryParams.page === "number") query.set("page", String(queryParams.page));
+    if (typeof queryParams.limit === "number") query.set("limit", String(queryParams.limit));
+    if (typeof queryParams.ward_id === "number") query.set("ward_id", String(queryParams.ward_id));
+    if (typeof queryParams.category_id === "number") query.set("category_id", String(queryParams.category_id));
+    if (typeof queryParams.authority_id === "number") query.set("authority_id", String(queryParams.authority_id));
+    if (queryParams.from_date?.trim()) query.set("from_date", queryParams.from_date.trim());
+    if (queryParams.to_date?.trim()) query.set("to_date", queryParams.to_date.trim());
+    if (queryParams.search?.trim()) query.set("search", queryParams.search.trim());
 
-    appendMultiValueParam(query, 'status', queryParams.status);
+    appendMultiValueParam(query, "status", queryParams.status);
 
-    const suffix = query.toString() ? `?${query.toString()}` : '';
-    return request<AdminReportsResponse>(`/admin/reports${suffix}`, { token });
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<AdminReportsResponse>(`/admin/reports${suffix}`);
 };
 
 // Admin action to reassign report ownership/routing.
 export const reassignAdminReport = (
-    token: string,
     reportId: number,
     payload: { authority_id: number; category_id?: number; note: string }
 ) =>
     request<AdminReportReassignResponse>(`/admin/reports/${reportId}/reassign`, {
-        method: 'PATCH',
-        token,
+        method: "PATCH",
         body: JSON.stringify(payload),
     });
 
 // Admin action to force close a report with audit note.
 export const overrideCloseAdminReport = (
-    token: string,
     reportId: number,
     payload: { note: string }
 ) =>
     request<AdminOverrideCloseResponse>(`/admin/reports/${reportId}/override-close`, {
-        method: 'PATCH',
-        token,
+        method: "PATCH",
         body: JSON.stringify(payload),
     });
 
 // Submit a new report with form data + optional media.
-export const createReport = (token: string, formData: FormData) =>
+export const createReport = (formData: FormData) =>
     request<{ message: string; report: { id: number; tracking_number: string } }>("/reports", {
         method: "POST",
-        token,
         body: formData,
     });
 
 // Upvote or remove upvote for a report.
-export const toggleUpvote = (token: string, reportId: number) =>
+export const toggleUpvote = (reportId: number) =>
     request<{ upvoted: boolean; upvote_count: number; message: string }>(`/reports/${reportId}/upvote`, {
         method: "POST",
-        token,
     });
 
 // Convert backend media path into absolute browser URL.
@@ -565,5 +507,9 @@ export const toPublicAssetUrl = (mediaUrl?: string | null) => {
 
     // Remove /api segment so static uploads resolve from backend root.
     const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
-    return `${apiOrigin}${mediaUrl}`;
+    const normalizedPath = mediaUrl.replace(/\\/g, "/");
+    const pathWithLeadingSlash = normalizedPath.startsWith("/")
+        ? normalizedPath
+        : `/${normalizedPath}`;
+    return `${apiOrigin}${pathWithLeadingSlash}`;
 };

@@ -7,7 +7,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { getWards, login } from "@/lib/api";
-import { getAuth, getToken, setAuth } from "@/lib/auth";
+import { getAuth, hasAuthSession, refreshAuthSession, setAuth } from "@/lib/auth";
 import { defaultRouteForRole } from "@/lib/roleRouting";
 import type { Ward } from "@/lib/types";
 
@@ -36,11 +36,29 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        // Skip login if session already exists.
-        if (getToken()) {
-            const currentRole = getAuth()?.user?.role;
-            router.replace(requestedNextPath || defaultRouteForRole(currentRole));
-        }
+        let isMounted = true;
+
+        const run = async () => {
+            // Skip login if local auth snapshot already exists.
+            if (hasAuthSession()) {
+                const currentRole = getAuth()?.user?.role;
+                if (isMounted) {
+                    router.replace(requestedNextPath || defaultRouteForRole(currentRole));
+                }
+                return;
+            }
+
+            // Try hydrating session from HttpOnly cookie.
+            const user = await refreshAuthSession();
+            if (!isMounted || !user) return;
+            router.replace(requestedNextPath || defaultRouteForRole(user.role));
+        };
+
+        void run();
+
+        return () => {
+            isMounted = false;
+        };
     }, [requestedNextPath, router]);
 
     useEffect(() => {
@@ -71,8 +89,8 @@ export default function LoginPage() {
                 role_context: portalRole,
                 ward_id: portalRole === "resident" ? Number(wardId) : undefined,
             });
-            // Persist auth payload for shared session-aware components.
-            setAuth(result);
+            // Persist user snapshot for client navigation/role guards.
+            setAuth({ user: result.user });
             // Go to requested path (if present) or role default dashboard.
             router.push(requestedNextPath || defaultRouteForRole(result.user.role));
         } catch (err) {

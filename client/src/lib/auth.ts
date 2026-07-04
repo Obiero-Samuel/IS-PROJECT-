@@ -1,9 +1,10 @@
 /**
  * Browser auth storage + sync helpers.
  */
-import type { AuthPayload } from "./types";
+import type { AuthPayload, AuthUser } from "./types";
 
-// LocalStorage key used for the full auth payload ({ token, user }).
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api";
+// LocalStorage key used for lightweight auth snapshot ({ user }).
 const AUTH_KEY = "is_project_auth";
 // Custom browser event name used to notify same-tab listeners.
 const AUTH_SYNC_EVENT = "is-project-auth-sync";
@@ -17,7 +18,13 @@ const parseAuth = (raw: string | null): AuthPayload | null => {
 
     try {
         // Parse JSON string into the typed auth payload shape.
-        return JSON.parse(raw) as AuthPayload;
+        const parsed = JSON.parse(raw) as Partial<AuthPayload> | null;
+        if (!parsed?.user) return null;
+
+        // Persist only safe user metadata in browser storage.
+        return {
+            user: parsed.user,
+        };
     } catch {
         // Bad/corrupt JSON is treated as no session.
         return null;
@@ -46,8 +53,8 @@ export const getAuth = (): AuthPayload | null => {
 export const setAuth = (payload: AuthPayload) => {
     // Ignore writes when not in a browser context.
     if (!canUseStorage()) return;
-    // Persist latest token and user details.
-    localStorage.setItem(AUTH_KEY, JSON.stringify(payload));
+    // Persist only session-safe user metadata (no JWT in browser storage).
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ user: payload.user }));
     // Notify listeners after storage is updated.
     emitAuthSync();
 };
@@ -61,8 +68,34 @@ export const clearAuth = () => {
     emitAuthSync();
 };
 
-// Convenience helper used by API calls that only need the token.
-export const getToken = () => getAuth()?.token ?? null;
+export const hasAuthSession = () => Boolean(getAuth()?.user);
+
+// Refresh local auth snapshot from backend session cookie.
+export const refreshAuthSession = async (): Promise<AuthUser | null> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+            method: "GET",
+            credentials: "include",
+        });
+
+        if (!response.ok) {
+            clearAuth();
+            return null;
+        }
+
+        const payload = (await response.json()) as { user?: AuthUser };
+        if (!payload.user) {
+            clearAuth();
+            return null;
+        }
+
+        setAuth({ user: payload.user });
+        return payload.user;
+    } catch {
+        clearAuth();
+        return null;
+    }
+};
 
 export const subscribeAuth = (callback: () => void) => {
     // Return a no-op unsubscribe during SSR.

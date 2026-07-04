@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { authFromSnapshot, clearAuth, getAuthServerSnapshot, getAuthSnapshot, subscribeAuth } from "@/lib/auth";
+import { logout as logoutSession } from "@/lib/api";
 
 export default function NavBar() {
     // Read auth state from the shared auth store so this navbar reacts to login/logout instantly.
@@ -28,18 +29,21 @@ export default function NavBar() {
     // Build a CSS class string with optional active styling.
     const linkClass = (href: string) => `nav-link${isActive(href) ? " nav-link-active" : ""}`;
 
-    const handleLogout = () => {
-        // Remove saved auth and then force navigation to public home.
-        clearAuth();
-        window.location.href = "/";
+    const handleLogout = async () => {
+        try {
+            // Ask backend to clear HttpOnly session cookie.
+            await logoutSession();
+        } catch {
+            // Ignore network/logout API failures and still clear local snapshot.
+        } finally {
+            clearAuth();
+            window.location.href = "/";
+        }
     };
 
     return (
         <header className="topbar">
             <div className="container topbar-inner">
-                {/* Brand link always returns to home. */}
-                <Link href="/" className="brand">IS PROJECT</Link>
-
                 <nav className="nav" aria-label="Primary">
                     {/* Home link is always visible. */}
                     <Link href="/" className={linkClass("/")}>Home</Link>

@@ -7,7 +7,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { getWards, register } from "@/lib/api";
-import { getAuth, getToken } from "@/lib/auth";
+import { getAuth, hasAuthSession, refreshAuthSession } from "@/lib/auth";
 import { defaultRouteForRole } from "@/lib/roleRouting";
 import type { Ward } from "@/lib/types";
 
@@ -37,10 +37,28 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        // Existing sessions skip registration.
-        if (getToken()) {
-            router.replace(defaultRouteForRole(getAuth()?.user?.role));
-        }
+        let isMounted = true;
+
+        const run = async () => {
+            // Existing local snapshot skips registration.
+            if (hasAuthSession()) {
+                if (isMounted) {
+                    router.replace(defaultRouteForRole(getAuth()?.user?.role));
+                }
+                return;
+            }
+
+            // Check server session cookie as fallback.
+            const user = await refreshAuthSession();
+            if (!isMounted || !user) return;
+            router.replace(defaultRouteForRole(user.role));
+        };
+
+        void run();
+
+        return () => {
+            isMounted = false;
+        };
     }, [router]);
 
     useEffect(() => {

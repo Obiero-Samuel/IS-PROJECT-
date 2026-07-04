@@ -12,9 +12,47 @@ const OTP_TTL_MINUTES = parseInt(process.env.OTP_TTL_MINUTES || '10', 10);
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PROFILE_MAX_EDITS = parseInt(process.env.PROFILE_MAX_EDITS || '5', 10);
 const EXPOSE_DEV_OTP = !IS_PRODUCTION && String(process.env.EXPOSE_DEV_OTP || '').toLowerCase() === 'true';
+const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'is_project_session';
+const AUTH_COOKIE_MAX_AGE_MS = parseInt(process.env.AUTH_COOKIE_MAX_AGE_MS || '604800000', 10);
+const AUTH_COOKIE_SECURE = String(process.env.AUTH_COOKIE_SECURE || '').toLowerCase() === 'true' || IS_PRODUCTION;
+
+const normalizeSameSite = (value) => {
+  const normalized = String(value || 'lax').toLowerCase();
+  if (normalized === 'strict' || normalized === 'none') return normalized;
+  return 'lax';
+};
+
+const AUTH_COOKIE_SAMESITE = (() => {
+  const candidate = normalizeSameSite(process.env.AUTH_COOKIE_SAMESITE || 'lax');
+  // Browsers reject SameSite=None cookies without Secure=true.
+  if (candidate === 'none' && !AUTH_COOKIE_SECURE) {
+    return 'lax';
+  }
+  return candidate;
+})();
+
+const authCookieBaseOptions = {
+  httpOnly: true,
+  secure: AUTH_COOKIE_SECURE,
+  sameSite: AUTH_COOKIE_SAMESITE,
+  path: '/',
+};
+
+const setSessionCookie = (res, token) => {
+  res.cookie(AUTH_COOKIE_NAME, token, {
+    ...authCookieBaseOptions,
+    maxAge: AUTH_COOKIE_MAX_AGE_MS,
+  });
+};
+
+const clearSessionCookie = (res) => {
+  res.clearCookie(AUTH_COOKIE_NAME, authCookieBaseOptions);
+};
 
 // Normalize email once for consistent lookups.
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+// Normalize username for stable auth comparisons while preserving display casing.
+const normalizeUsername = (value) => String(value || '').trim();
 
 // Store OTP as hash (never plaintext).
 const hashOtp = (otp) => crypto.createHash('sha256').update(otp).digest('hex');
@@ -191,11 +229,12 @@ const signToken = (user) => {
 const register = async (req, res, next) => {
   try {
     const { username, email, password, ward_id, role_context } = req.body;
+    const normalizedUsername = normalizeUsername(username);
     const normalizedEmail = normalizeEmail(email);
     const requestedRole = typeof role_context === 'string' ? role_context.trim().toLowerCase() : 'resident';
 
     // Validate payload and role-specific requirements.
-    if (!username || !normalizedEmail || !password) {
+    if (!normalizedUsername || !normalizedEmail || !password) {
       return res.status(400).json({ error: { message: 'username, email, and password are required.' } });
     }
 
@@ -224,8 +263,8 @@ const register = async (req, res, next) => {
 
     // Uniqueness check.
     const existing = await db.query(
-      'SELECT id FROM users WHERE email = $1 OR username = $2',
-      [normalizedEmail, username]
+      'SELECT id FROM users WHERE email = $1 OR LOWER(TRIM(username)) = LOWER($2)',
+      [normalizedEmail, normalizedUsername]
     );
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: { message: 'Email or username already in use.' } });
@@ -240,7 +279,7 @@ const register = async (req, res, next) => {
        VALUES ($1, $2, $3, $4, $5, FALSE)
        RETURNING id, username, email, role, ward_id, created_at`,
       [
-        username,
+        normalizedUsername,
         normalizedEmail,
         password_hash,
         requestedRole,
@@ -275,9 +314,10 @@ const register = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const { username, email, password, ward_id, role_context } = req.body;
+    const normalizedUsername = normalizeUsername(username);
     const normalizedEmail = normalizeEmail(email);
 
-    if (!username || !normalizedEmail || !password) {
+    if (!normalizedUsername || !normalizedEmail || !password) {
       return res.status(400).json({ error: { message: 'username, email, and password are required.' } });
     }
 
@@ -285,8 +325,8 @@ const login = async (req, res, next) => {
     const result = await db.query(
       `SELECT *
        FROM users
-       WHERE email = $1 AND username = $2`,
-      [normalizedEmail, username]
+       WHERE email = $1 AND LOWER(TRIM(username)) = LOWER($2)`,
+      [normalizedEmail, normalizedUsername]
     );
     if (result.rows.length === 0) {
       return res.status(401).json({ error: { message: 'Invalid credentials.' } });
@@ -362,10 +402,10 @@ const login = async (req, res, next) => {
     }
 
     const token = signToken(userForSession);
+    setSessionCookie(res, token);
 
     res.json({
       message: 'Login successful.',
-      token,
       user: toAuthUser(userForSession)
     });
   } catch (err) {
@@ -400,9 +440,9 @@ const verifyEmailOtp = async (req, res, next) => {
 
     if (user.is_email_verified) {
       const token = signToken(user);
+      setSessionCookie(res, token);
       return res.json({
         message: 'Email already verified.',
-        token,
         user: toAuthUser(user),
       });
     }
@@ -421,23 +461,37 @@ const verifyEmailOtp = async (req, res, next) => {
       return res.status(400).json({ error: { message: 'Invalid OTP.' } });
     }
 
-    await db.query(
+    const verificationUpdateRes = await db.query(
       `UPDATE users
        SET is_email_verified = TRUE,
            email_verified_at = NOW(),
            email_verification_otp_hash = NULL,
            email_verification_otp_expires_at = NULL
-       WHERE id = $1`,
+       WHERE id = $1
+       RETURNING *`,
       [user.id]
     );
 
-    const token = signToken(user);
+    const verifiedUser = verificationUpdateRes.rows[0] || user;
+    const token = signToken(verifiedUser);
+    setSessionCookie(res, token);
 
     res.json({
       message: 'Email verified successfully.',
-      token,
-      user: toAuthUser(user),
+      user: toAuthUser(verifiedUser),
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/logout
+// ---------------------------------------------------------------------------
+const logout = async (req, res, next) => {
+  try {
+    clearSessionCookie(res);
+    res.json({ message: 'Logged out successfully.' });
   } catch (err) {
     next(err);
   }
@@ -704,10 +758,10 @@ const updateMyProfile = async (req, res, next) => {
     // Re-issue JWT after profile update.
     const updatedUser = updatedUserResult.rows[0];
     const token = signToken(updatedUser);
+    setSessionCookie(res, token);
 
     res.json({
       message: 'Profile updated successfully.',
-      token,
       user: toAuthUser(updatedUser),
       profile: toProfile(updatedUser),
       profileEdits: profileEditsMeta(updatedUser),
@@ -723,6 +777,7 @@ module.exports = {
   getMe,
   getMyProfile,
   updateMyProfile,
+  logout,
   verifyEmailOtp,
   resendVerificationOtp,
   listWards,

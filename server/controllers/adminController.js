@@ -325,7 +325,7 @@ const listReports = async (req, res, next) => {
     const offset = (page - 1) * limit;
 
     // Compose optional report filters.
-    const conditions = [];
+    const conditions = ['r.resident_deleted_at IS NULL'];
     const params = [];
 
     if (req.query.ward_id !== undefined && req.query.ward_id !== '') {
@@ -539,6 +539,7 @@ const reassignReport = async (req, res, next) => {
       `SELECT id, tracking_number, category_id, status
        FROM reports
        WHERE id = $1
+         AND resident_deleted_at IS NULL
        FOR UPDATE`,
       [reportId]
     );
@@ -573,7 +574,8 @@ const reassignReport = async (req, res, next) => {
         `UPDATE reports
          SET category_id = $1,
              updated_at = NOW()
-         WHERE id = $2`,
+         WHERE id = $2
+           AND resident_deleted_at IS NULL`,
         [targetCategoryId, reportId]
       );
     }
@@ -674,6 +676,7 @@ const overrideCloseReport = async (req, res, next) => {
       `SELECT id, tracking_number, status
        FROM reports
        WHERE id = $1
+         AND resident_deleted_at IS NULL
        FOR UPDATE`,
       [reportId]
     );
@@ -693,6 +696,7 @@ const overrideCloseReport = async (req, res, next) => {
            closed_at = NOW(),
            updated_at = NOW()
        WHERE id = $2
+         AND resident_deleted_at IS NULL
        RETURNING id, tracking_number, status, closed_by_admin, admin_override_notes, closed_at, updated_at`,
       [note, reportId]
     );
@@ -1149,6 +1153,7 @@ const generateWeeklyExport = async (req, res, next) => {
        LEFT JOIN categories c ON c.id = r.category_id
        LEFT JOIN wards w ON w.id = r.ward_id
        WHERE r.status <> 'resolved'
+         AND r.resident_deleted_at IS NULL
          AND r.created_at >= $2
          AND r.created_at <= $3
          ${wardFilter}
@@ -1221,6 +1226,7 @@ const generateWeeklyExport = async (req, res, next) => {
        FROM escalations e
        JOIN reports r ON r.id = e.report_id
        WHERE e.authority_id = $1
+         AND r.resident_deleted_at IS NULL
          AND e.escalated_at >= $2
          AND e.escalated_at <= $3
          ${wardFilter}`,

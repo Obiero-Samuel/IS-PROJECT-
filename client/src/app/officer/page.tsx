@@ -11,8 +11,6 @@ import {
   addOfficerQueueNote,
   getOfficerEscalations,
   getOfficerQueue,
-  loadStoredToken,
-  storeToken,
   toPublicAssetUrl,
   updateOfficerQueueStatus,
 } from "@/lib/api";
@@ -43,7 +41,6 @@ export default function OfficerPage() {
   const auth = authFromSnapshot(authRaw);
 
   // Core dashboard controls + filter inputs.
-  const [token, setToken] = useState(() => loadStoredToken());
   const [activeTab, setActiveTab] = useState<OfficerTab>("queue");
   const [statusFilter, setStatusFilter] = useState("");
   const [wardFilter, setWardFilter] = useState("");
@@ -123,12 +120,6 @@ export default function OfficerPage() {
     return `${reports.length} report${reports.length === 1 ? "" : "s"} loaded in your authority queue.`;
   }, [reports.length]);
 
-  const saveToken = () => {
-    // Persist token typed into shell card for later requests.
-    storeToken(token);
-    setFeedback("Token saved locally.");
-  };
-
   const loadDashboardData = async () => {
     setLoading(true);
     setFeedback("");
@@ -136,13 +127,13 @@ export default function OfficerPage() {
     try {
       // Refresh queue and escalations together.
       const [queueData, escalationsData] = await Promise.all([
-        getOfficerQueue(token, {
+        getOfficerQueue({
           status: statusFilter || undefined,
           ward_id: wardFilter ? Number(wardFilter) : undefined,
           from_date: fromDateFilter || undefined,
           to_date: toDateFilter || undefined,
         }),
-        getOfficerEscalations(token),
+        getOfficerEscalations(),
       ]);
 
       setReports(queueData.reports);
@@ -173,7 +164,7 @@ export default function OfficerPage() {
 
     setIsUpdatingStatus(true);
     try {
-      await updateOfficerQueueStatus(token, reportId, {
+      await updateOfficerQueueStatus(reportId, {
         status,
         notes: note || undefined,
       });
@@ -199,7 +190,7 @@ export default function OfficerPage() {
     // Save note even when status stays the same.
     setIsSavingNote(true);
     try {
-      await addOfficerQueueNote(token, reportId, notes);
+      await addOfficerQueueNote(reportId, notes);
       setFeedback(`Note added to report #${reportId}.`);
       await loadDashboardData();
     } catch (error) {
@@ -231,13 +222,11 @@ export default function OfficerPage() {
 
   return (
     <RequireAuth allowedRoles={["authority", "admin"]}>
-      {/* Shared shell gives consistent header + token card + navigation. */}
+      {/* Shared shell gives consistent header + navigation. */}
       <DashboardShell
         title="Officer Case Queue"
         subtitle="Monitor authority-scoped cases, prioritize overdue escalations, update statuses, and resolve reports with audited notes."
-        token={token}
-        onTokenChange={setToken}
-        onSaveToken={saveToken}
+        showEyebrow={false}
       >
         {/* Identity header confirms current officer and mapped authority scope. */}
         <section className={styles.headerIdentity}>

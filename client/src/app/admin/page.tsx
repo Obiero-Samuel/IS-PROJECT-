@@ -15,11 +15,9 @@ import {
     getAdminWeeklyExports,
     getCategoryAuthorityMappings,
     generateAdminWeeklyExport,
-    loadStoredToken,
     overrideCloseAdminReport,
     reassignAdminReport,
     saveCategoryAuthorityDeadline,
-    storeToken,
     updateAdminUserLifecycle,
 } from "@/lib/api";
 import type {
@@ -76,8 +74,7 @@ type ReassignDraft = {
 };
 
 export default function AdminPage() {
-    // Shared token + global status feedback.
-    const [token, setToken] = useState(() => loadStoredToken());
+    // Global status feedback.
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -177,17 +174,11 @@ export default function AdminPage() {
         return styles.feedbackSuccess;
     }, [message]);
 
-    const saveToken = () => {
-        // Save token entered in shell card for subsequent API requests.
-        storeToken(token);
-        setMessage("Token saved locally.");
-    };
-
     const loadReports = async (page = reportsPage) => {
         setReportsLoading(true);
         try {
             // Convert form-string filters to typed query params.
-            const data = await getAdminReports(token, {
+            const data = await getAdminReports({
                 page,
                 limit: reportsLimit,
                 status: reportsFilters.status || undefined,
@@ -213,7 +204,7 @@ export default function AdminPage() {
     const refreshCategoryAuthorityMappings = async () => {
         setMappingsLoading(true);
         try {
-            const response = await getCategoryAuthorityMappings(token);
+            const response = await getCategoryAuthorityMappings();
             setCategoryAuthorityMappings(response.mappings);
             setMessage("Category-authority deadlines refreshed.");
         } catch (error) {
@@ -227,7 +218,7 @@ export default function AdminPage() {
     const refreshWeeklyExports = async () => {
         setWeeklyExportsLoading(true);
         try {
-            const response = await getAdminWeeklyExports(token, { limit: 50 });
+            const response = await getAdminWeeklyExports({ limit: 50 });
             setWeeklyExports(response.exports);
             setMessage("Weekly exports refreshed.");
         } catch (error) {
@@ -245,12 +236,12 @@ export default function AdminPage() {
         try {
             // Prime core admin datasets in parallel.
             const [usersRes, wardsRes, categoriesRes, authoritiesRes, mappingsRes, weeklyExportsRes] = await Promise.all([
-                getAdminUsers(token),
-                apiRequest<{ wards: WardRow[] }>("/admin/wards", { token }),
-                apiRequest<{ categories: CategoryRow[] }>("/admin/categories", { token }),
-                apiRequest<{ authorities: AuthorityRow[] }>("/admin/authorities", { token }),
-                getCategoryAuthorityMappings(token),
-                getAdminWeeklyExports(token, { limit: 50 }),
+                getAdminUsers(),
+                apiRequest<{ wards: WardRow[] }>("/admin/wards"),
+                apiRequest<{ categories: CategoryRow[] }>("/admin/categories"),
+                apiRequest<{ authorities: AuthorityRow[] }>("/admin/authorities"),
+                getCategoryAuthorityMappings(),
+                getAdminWeeklyExports({ limit: 50 }),
             ]);
 
             setUsers(usersRes.users);
@@ -273,7 +264,6 @@ export default function AdminPage() {
         try {
             await apiRequest(`/admin/users/${userId}`, {
                 method: "PATCH",
-                token,
                 body: { role },
             });
             // Reload all datasets so role-related tables and stats stay in sync.
@@ -294,7 +284,6 @@ export default function AdminPage() {
         try {
             await apiRequest("/admin/categories", {
                 method: "POST",
-                token,
                 body: {
                     name: newCategory.name,
                     description: newCategory.description,
@@ -319,7 +308,6 @@ export default function AdminPage() {
         try {
             await apiRequest("/admin/wards", {
                 method: "POST",
-                token,
                 body: {
                     name: newWard.name,
                     county: newWard.county,
@@ -345,7 +333,6 @@ export default function AdminPage() {
         try {
             await apiRequest("/admin/authorities", {
                 method: "POST",
-                token,
                 body: {
                     name: newAuthority.name,
                     type: newAuthority.type,
@@ -372,7 +359,7 @@ export default function AdminPage() {
         }
 
         try {
-            await updateAdminUserLifecycle(token, user.id, {
+            await updateAdminUserLifecycle(user.id, {
                 is_active: nextIsActive,
                 deactivation_reason: nextIsActive ? undefined : reason,
             });
@@ -417,7 +404,7 @@ export default function AdminPage() {
         }
 
         try {
-            await saveCategoryAuthorityDeadline(token, {
+            await saveCategoryAuthorityDeadline({
                 category_id,
                 authority_id,
                 response_deadline_days,
@@ -443,7 +430,7 @@ export default function AdminPage() {
         }
 
         try {
-            await saveCategoryAuthorityDeadline(token, {
+            await saveCategoryAuthorityDeadline({
                 category_id: mapping.category_id,
                 authority_id: mapping.authority_id,
                 response_deadline_days,
@@ -459,7 +446,7 @@ export default function AdminPage() {
 
     const removeMapping = async (mapping: CategoryAuthorityDeadlineMapping) => {
         try {
-            await deleteCategoryAuthorityMapping(token, {
+            await deleteCategoryAuthorityMapping({
                 category_id: mapping.category_id,
                 authority_id: mapping.authority_id,
             });
@@ -488,7 +475,7 @@ export default function AdminPage() {
         }
 
         try {
-            await generateAdminWeeklyExport(token, {
+            await generateAdminWeeklyExport({
                 authority_id,
                 ward_id,
                 format: newWeeklyExport.format,
@@ -508,7 +495,7 @@ export default function AdminPage() {
     const downloadWeeklyExportFile = async (item: AdminWeeklyExportItem) => {
         try {
             // Download via object URL to avoid page navigation.
-            const { blob, filename } = await downloadAdminWeeklyExport(token, item.id);
+            const { blob, filename } = await downloadAdminWeeklyExport(item.id);
             const objectUrl = URL.createObjectURL(blob);
             const anchor = document.createElement("a");
             anchor.href = objectUrl;
@@ -549,7 +536,7 @@ export default function AdminPage() {
         }
 
         try {
-            await reassignAdminReport(token, report.id, {
+            await reassignAdminReport(report.id, {
                 authority_id,
                 category_id,
                 note,
@@ -573,7 +560,7 @@ export default function AdminPage() {
         }
 
         try {
-            await overrideCloseAdminReport(token, report.id, { note });
+            await overrideCloseAdminReport(report.id, { note });
             // Reload current page to reflect closed status and metadata.
             setMessage(`Report ${report.tracking_number} override-closed.`);
             await loadReports(reportsPage);
@@ -585,13 +572,11 @@ export default function AdminPage() {
 
     return (
         <RequireAuth allowedRoles={["admin"]}>
-            {/* Dashboard shell provides shared page frame and token card. */}
+            {/* Dashboard shell provides shared page frame and navigation. */}
             <DashboardShell
                 title="Admin Panel"
                 subtitle="Manage users, categories, wards, and authorities from one command surface."
-                token={token}
-                onTokenChange={setToken}
-                onSaveToken={saveToken}
+                showEyebrow={false}
             >
                 {/* Top toolbar: reload everything + show latest operation message. */}
                 <div className={styles.topBar}>

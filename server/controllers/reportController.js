@@ -133,7 +133,7 @@ const getReports = async (req, res, next) => {
     const offset = (page - 1) * limit;
 
     // Compose optional list filters.
-    const conditions = [];
+    const conditions = ['r.resident_deleted_at IS NULL'];
     const params = [];
 
     if (req.query.category_id) {
@@ -209,6 +209,7 @@ const getMyReports = async (req, res, next) => {
        LEFT JOIN categories c ON c.id = r.category_id
        LEFT JOIN upvotes uv ON uv.report_id = r.id
        WHERE r.user_id = $1
+         AND r.resident_deleted_at IS NULL
        GROUP BY r.id, c.name
        ORDER BY r.created_at DESC`,
       [req.user.id]
@@ -240,6 +241,7 @@ const getReportById = async (req, res, next) => {
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN upvotes uv ON uv.report_id = r.id
        WHERE r.id = $1
+         AND r.resident_deleted_at IS NULL
        GROUP BY r.id, c.name, u.username`,
       [id]
     );
@@ -263,9 +265,12 @@ const upvoteReport = async (req, res, next) => {
     const userId = req.user.id;
 
     // Upvotes require an existing report.
-    const reportCheck = await db.query('SELECT id FROM reports WHERE id = $1', [reportId]);
+    const reportCheck = await db.query(
+      'SELECT id FROM reports WHERE id = $1 AND resident_deleted_at IS NULL',
+      [reportId]
+    );
     if (reportCheck.rows.length === 0) {
-      return res.status(404).json({ error: { message: 'Report not found.' } });
+      return res.status(404).json({ error: { message: 'Report not found or no longer available.' } });
     }
 
     // Toggle existing upvote on/off.
@@ -305,11 +310,86 @@ const upvoteReport = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// DELETE /api/reports/:id  (resident owner only, one-time soft delete)
+// ---------------------------------------------------------------------------
+const deleteMyReport = async (req, res, next) => {
+  try {
+    const reportId = parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(reportId) || reportId <= 0) {
+      return res.status(400).json({ error: { message: 'Invalid report id.' } });
+    }
+
+    const userId = req.user.id;
+
+    // Soft delete only once per report by owner.
+    const updateResult = await db.query(
+      `UPDATE reports
+       SET resident_deleted_at = NOW(),
+           resident_deleted_by = $2,
+           updated_at = NOW()
+       WHERE id = $1
+         AND user_id = $2
+         AND resident_deleted_at IS NULL
+       RETURNING id, tracking_number, resident_deleted_at`,
+      [reportId, userId]
+    );
+
+    if (updateResult.rows.length === 0) {
+      const reportStateRes = await db.query(
+        `SELECT resident_deleted_at
+         FROM reports
+         WHERE id = $1
+           AND user_id = $2
+         LIMIT 1`,
+        [reportId, userId]
+      );
+
+      if (reportStateRes.rows.length === 0) {
+        return res.status(404).json({ error: { message: 'Report not found in your account.' } });
+      }
+
+      if (reportStateRes.rows[0].resident_deleted_at) {
+        return res.status(409).json({
+          error: { message: 'This report has already been deleted once and cannot be deleted again.' }
+        });
+      }
+
+      return res.status(409).json({ error: { message: 'Report deletion could not be completed.' } });
+    }
+
+    const deletedReport = updateResult.rows[0];
+
+    await recordAuditTrail({
+      actorUserId: userId,
+      actorRole: req.user.role,
+      actionType: 'resident_report_deleted',
+      notes: 'Resident deleted own report.',
+      metadata: {
+        module: 'Resident Reports',
+        report_id: deletedReport.id,
+        tracking_number: deletedReport.tracking_number,
+        deleted_at: deletedReport.resident_deleted_at,
+      },
+    });
+
+    res.json({
+      message: 'Report deleted successfully.',
+      report_id: deletedReport.id,
+      deleted_at: deletedReport.resident_deleted_at,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getCategories,
   createReport,
   getReports,
   getMyReports,
   getReportById,
-  upvoteReport
+  upvoteReport,
+  deleteMyReport
 };

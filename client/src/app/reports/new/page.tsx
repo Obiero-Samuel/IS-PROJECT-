@@ -4,12 +4,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import NavBar from "@/components/NavBar";
 import RequireAuth from "@/components/RequireAuth";
 import { createReport, getCategories } from "@/lib/api";
-import { getToken } from "@/lib/auth";
 import type { Category } from "@/lib/types";
+import styles from "./page.module.css";
 
 const LeafletMapPicker = dynamic(() => import("@/components/map/LeafletMapPicker"), {
     ssr: false,
@@ -48,16 +48,34 @@ export default function NewReportPage() {
         void run();
     }, []);
 
+    // Resolve selected category details for inline helper text.
+    const selectedCategory = useMemo(
+        () => categories.find((item) => String(item.id) === categoryId) ?? null,
+        [categories, categoryId],
+    );
+
+    // Curated hints to reduce category confusion for common resident issues.
+    const categoryHints = useMemo(
+        () => [
+            {
+                title: "Road damage or potholes",
+                suggested: ["Roads & Potholes", "Drainage & Flooding"],
+            },
+            {
+                title: "No power or dark streets",
+                suggested: ["Street Lighting", "Public Safety"],
+            },
+            {
+                title: "Garbage or sewage issues",
+                suggested: ["Waste Management", "Sanitation & Sewage"],
+            },
+        ],
+        [],
+    );
+
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         // Prevent default browser submit to keep React control.
         event.preventDefault();
-
-        // Report submission requires auth token.
-        const token = getToken();
-        if (!token) {
-            setError("Please login first to submit a report.");
-            return;
-        }
 
         setError(null);
         setSuccess(null);
@@ -83,7 +101,7 @@ export default function NewReportPage() {
                 formData.append("photo", photo);
             }
 
-            const result = await createReport(token, formData);
+            const result = await createReport(formData);
             setSuccess(`Report submitted successfully. Tracking Number: ${result.report.tracking_number}`);
 
             // Reset for quick next submission.
@@ -105,17 +123,21 @@ export default function NewReportPage() {
         <RequireAuth>
             <NavBar />
             <main className="main">
-                <div className="container stack">
-                    <section className="card stack">
+                <div className={`container ${styles.layout}`}>
+                    <section className={styles.hero}>
                         {/* Form intro section. */}
-                        <h1 className="title">Submit a new report</h1>
-                        <p className="subtitle">Tell us what happened, where it happened, and add a photo if available.</p>
+                        <p className={styles.badge}>REPORT SUBMISSION</p>
+                        <h1 className={styles.heroTitle}>Submit a new report</h1>
+                        <p className={styles.heroLead}>
+                            Tell us what happened, where it happened, and add a photo if available.
+                            Pick the closest matching category so your report reaches the right authority faster.
+                        </p>
                     </section>
 
                     {error && <p className="message error">{error}</p>}
                     {success && <p className="message success">{success}</p>}
 
-                    <section className="card">
+                    <section className={`card ${styles.formCard}`}>
                         <form onSubmit={handleSubmit}>
                             <label>
                                 Title
@@ -166,6 +188,39 @@ export default function NewReportPage() {
                                     />
                                 )}
                             </label>
+
+                            {/* Selected-category helper gives residents confidence before submit. */}
+                            {categories.length > 0 && (
+                                <div className={styles.categoryAssist}>
+                                    {!categoryId ? (
+                                        <p className={styles.categoryPrompt}>
+                                            Select a category to see what kinds of issues it covers.
+                                        </p>
+                                    ) : selectedCategory ? (
+                                        <>
+                                            <p className={styles.categoryLabel}>Selected category</p>
+                                            <h3>{selectedCategory.name}</h3>
+                                            <p className="muted">
+                                                {selectedCategory.description ||
+                                                    "This category is currently active for resident report routing."}
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <p className="message error">Selected category is no longer available. Please choose again.</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {categories.length > 0 && (
+                                <section className={styles.categoryHints} aria-label="Category guidance">
+                                    {categoryHints.map((hint) => (
+                                        <article key={hint.title} className={styles.hintCard}>
+                                            <h3>{hint.title}</h3>
+                                            <p className="muted">Suggested categories: {hint.suggested.join(" • ")}</p>
+                                        </article>
+                                    ))}
+                                </section>
+                            )}
 
                             <label>
                                 Location address (optional)

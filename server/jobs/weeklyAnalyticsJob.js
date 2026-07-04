@@ -118,15 +118,19 @@ const runWeeklyAnalytics = async ({ triggeredBy = 'system', triggeredByUserId = 
          COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_reports,
          COUNT(*) FILTER (WHERE status = 'in-progress')::int AS in_progress_reports
        FROM reports
-       WHERE created_at::date BETWEEN $1::date AND $2::date`,
+             WHERE created_at::date BETWEEN $1::date AND $2::date
+                 AND resident_deleted_at IS NULL`,
             [periodStart, periodEnd]
         );
 
         // Query currently overdue pending escalations.
         const overdueRes = await db.query(
             `SELECT COUNT(*)::int AS overdue_escalations
-       FROM escalations
-       WHERE is_overdue = TRUE AND status = 'pending'`
+             FROM escalations e
+             JOIN reports r ON r.id = e.report_id
+             WHERE e.is_overdue = TRUE
+                 AND e.status = 'pending'
+                 AND r.resident_deleted_at IS NULL`
         );
 
         // Normalize metric values from SQL rows.

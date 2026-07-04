@@ -9,7 +9,6 @@ import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import RequireAuth from "@/components/RequireAuth";
 import { getPublicReports, toggleUpvote } from "@/lib/api";
-import { getToken } from "@/lib/auth";
 import type { ReportItem } from "@/lib/types";
 
 const PublicReportsMap = dynamic(() => import("@/components/map/PublicReportsMap"), {
@@ -39,17 +38,10 @@ export default function WardMapPage() {
     }, []);
 
     const handleUpvote = async (reportId: number) => {
-        // Upvote from map popups requires login token.
-        const token = getToken();
-        if (!token) {
-            setError("Login is required to upvote from the map.");
-            return;
-        }
-
         setError(null);
 
         try {
-            const result = await toggleUpvote(token, reportId);
+            const result = await toggleUpvote(reportId);
             // Keep local marker popup counts in sync with server result.
             setReports((current) =>
                 current.map((report) =>

@@ -1,4 +1,4 @@
-/* This file styles the admin dashboard sections, tables, forms, and badges. */
+/* This file styles the admin dashboard with the same resident/officer visual language. */
 .topBar {
     display: flex;
     flex-wrap: wrap;
@@ -9,20 +9,22 @@
 
 .refreshButton {
     border: 1px solid transparent;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #0f4f89, #1d70b8);
+    border-radius: 0.74rem;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
     color: #fff;
+    font: inherit;
     font-weight: 700;
-    padding: 0.64rem 0.98rem;
+    letter-spacing: 0.01em;
+    padding: 0.66rem 0.98rem;
     cursor: pointer;
-    box-shadow: 0 10px 22px rgba(15, 79, 137, 0.26);
+    box-shadow: 0 10px 22px rgba(79, 70, 229, 0.26);
     transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
 }
 
 .refreshButton:hover {
     transform: translateY(-1px);
     filter: brightness(1.03);
-    box-shadow: 0 13px 25px rgba(15, 79, 137, 0.3);
+    box-shadow: 0 13px 25px rgba(79, 70, 229, 0.3);
 }
 
 .refreshButton:disabled {
@@ -35,52 +37,66 @@
 .feedback {
     margin: 0;
     padding: 0.56rem 0.8rem;
-    border-radius: 12px;
-    border: 1px solid rgba(16, 35, 56, 0.16);
-    background: rgba(255, 255, 255, 0.76);
-    color: #2d5379;
+    border-radius: 0.78rem;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--muted);
     font-size: 0.92rem;
     max-width: min(72ch, 100%);
 }
 
 .feedbackSuccess {
-    color: #0f5132;
-    border-color: rgba(15, 81, 50, 0.28);
-    background: rgba(227, 252, 239, 0.9);
+    color: var(--ok);
+    border-color: #bbf7d0;
+    background: #f0fdf4;
 }
 
 .feedbackError {
-    color: #8a1f2f;
-    border-color: rgba(138, 31, 47, 0.26);
-    background: rgba(255, 238, 241, 0.92);
+    color: #9f1239;
+    border-color: #fecdd3;
+    background: #fff1f2;
 }
 
 .statsGrid {
     display: grid;
     gap: 0.8rem;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
 }
 
 .statCard {
-    border: 1px solid rgba(16, 35, 56, 0.14);
-    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
     padding: 0.9rem;
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 12px 24px rgba(10, 34, 58, 0.08);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.64), rgba(255, 255, 255, 0.82)),
+        var(--surface);
+    box-shadow: var(--shadow-sm);
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.statCard::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    opacity: 0.7;
+    background: linear-gradient(90deg, var(--brand), var(--brand-3));
 }
 
 .statLabel {
     margin: 0;
-    color: #3c5d7f;
+    color: var(--muted);
     font-size: 0.84rem;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .statValue {
     margin: 0.24rem 0 0;
-    font-size: 1.56rem;
+    font-size: clamp(1.42rem, 2.8vw, 1.95rem);
     font-weight: 800;
-    color: #0f2942;
+    line-height: 1.08;
 }
 
 .sectionGrid {
@@ -91,12 +107,15 @@
 
 .section {
     display: grid;
-    gap: 0.78rem;
-    border-radius: 18px;
-    border: 1px solid rgba(16, 35, 56, 0.15);
-    background: rgba(255, 255, 255, 0.9);
+    gap: 0.8rem;
+    border-radius: 1.05rem;
+    border: 1px solid var(--border);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.63), rgba(255, 255, 255, 0.8)),
+        var(--surface);
     padding: 1rem;
-    box-shadow: 0 12px 24px rgba(10, 34, 58, 0.08);
+    box-shadow: var(--shadow-sm);
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .sectionHeader {
@@ -112,12 +131,15 @@
 }
 
 .countBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 999px;
-    border: 1px solid rgba(15, 79, 137, 0.22);
-    background: rgba(15, 79, 137, 0.1);
-    color: #0f4f89;
-    padding: 0.2rem 0.6rem;
-    font-size: 0.78rem;
+    border: 1px solid #c7d2fe;
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 0.22rem 0.62rem;
+    font-size: 0.76rem;
     font-weight: 700;
 }
 
@@ -135,20 +157,20 @@
 .dataTable td {
     text-align: left;
     padding: 0.56rem;
-    border-bottom: 1px solid rgba(16, 35, 56, 0.12);
+    border-bottom: 1px solid var(--border);
     vertical-align: middle;
 }
 
 .dataTable th {
-    font-size: 0.82rem;
-    letter-spacing: 0.03em;
-    color: #355475;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--muted);
     text-transform: uppercase;
 }
 
 .tableEmpty {
     text-align: center !important;
-    color: #4f6d8b;
+    color: var(--muted);
     padding: 0.95rem !important;
 }
 
@@ -156,24 +178,25 @@
 .createRow input,
 .createRow button {
     font: inherit;
-    border-radius: 10px;
+    border-radius: 0.72rem;
 }
 
 .roleSelect,
 .createRow input,
 .input {
     width: 100%;
-    border: 1px solid rgba(16, 35, 56, 0.2);
-    padding: 0.48rem 0.6rem;
-    background: #f8fbff;
+    border: 1px solid #c9dafd;
+    padding: 0.5rem 0.62rem;
+    background: var(--surface-solid);
+    color: var(--text);
 }
 
 .roleSelect:focus,
 .createRow input:focus,
 .input:focus {
     outline: none;
-    border-color: #5a86b2;
-    box-shadow: 0 0 0 3px rgba(29, 112, 184, 0.18);
+    border-color: #90a7ff;
+    box-shadow: 0 0 0 4px var(--ring);
 }
 
 .roleBadge {
@@ -202,15 +225,15 @@
 }
 
 .statusActive {
-    background: rgba(6, 95, 70, 0.12);
-    color: #065f46;
-    border-color: rgba(6, 95, 70, 0.26);
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
 }
 
 .statusInactive {
-    background: rgba(185, 28, 28, 0.1);
-    color: #991b1b;
-    border-color: rgba(153, 27, 27, 0.26);
+    background: #fff1f2;
+    color: #9f1239;
+    border-color: #fecdd3;
 }
 
 .roleAdmin {
@@ -220,15 +243,15 @@
 }
 
 .roleAuthority {
-    background: rgba(6, 95, 70, 0.12);
-    color: #065f46;
-    border-color: rgba(6, 95, 70, 0.26);
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
 }
 
 .roleResident {
-    background: rgba(14, 116, 144, 0.1);
-    color: #0e7490;
-    border-color: rgba(14, 116, 144, 0.26);
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
 }
 
 .createRow,
@@ -259,30 +282,38 @@
 
 .createRow button,
 .addButton {
-    border: 0;
-    background: #133d67;
+    border: 1px solid transparent;
+    border-radius: 0.72rem;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
     color: #fff;
+    font: inherit;
     font-weight: 700;
-    padding: 0.5rem 0.65rem;
+    padding: 0.52rem 0.66rem;
     cursor: pointer;
+    transition: transform 140ms ease, filter 140ms ease;
 }
 
 .createRow button:hover,
 .addButton:hover {
-    filter: brightness(1.06);
+    transform: translateY(-1px);
+    filter: brightness(1.03);
 }
 
 .dangerButton {
-    border: 0;
-    background: #8b1e2d;
+    border: 1px solid transparent;
+    border-radius: 0.72rem;
+    background: linear-gradient(135deg, #be123c, #9f1239);
     color: #fff;
+    font: inherit;
     font-weight: 700;
-    padding: 0.5rem 0.65rem;
+    padding: 0.52rem 0.66rem;
     cursor: pointer;
+    transition: transform 140ms ease, filter 140ms ease;
 }
 
 .dangerButton:hover {
-    filter: brightness(1.06);
+    transform: translateY(-1px);
+    filter: brightness(1.04);
 }
 
 .list {
@@ -299,22 +330,32 @@
     align-items: baseline;
     gap: 1rem;
     padding: 0.58rem 0.66rem;
-    border-radius: 12px;
-    background: #f7fbff;
-    border: 1px solid rgba(16, 35, 56, 0.1);
+    border-radius: 0.78rem;
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid var(--border);
 }
 
 .itemMeta,
 .list span {
-    color: #4b6986;
+    color: var(--muted);
     font-size: 0.9rem;
 }
 
 .emptyState {
     margin: 0;
-    color: #4f6d8b;
+    color: var(--muted);
     font-size: 0.92rem;
     padding: 0.3rem 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+
+    .statCard:hover,
+    .section:hover {
+        transform: translateY(-2px);
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-md);
+    }
 }
 
 @media (max-width: 1120px) {
@@ -362,5 +403,64 @@
 @media (max-width: 500px) {
     .statsGrid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .feedback {
+        background: rgba(15, 23, 42, 0.76);
+    }
+
+    .feedbackSuccess {
+        border-color: #14532d;
+        color: #bbf7d0;
+        background: rgba(20, 83, 45, 0.28);
+    }
+
+    .feedbackError {
+        border-color: #7f1d1d;
+        color: #fecaca;
+        background: rgba(127, 29, 29, 0.25);
+    }
+
+    .countBadge {
+        border-color: #4a5f99;
+        color: #c8d4ff;
+        background: rgba(98, 111, 196, 0.2);
+    }
+
+    .roleSelect,
+    .createRow input,
+    .input {
+        border-color: #30486f;
+        background: #0b1530;
+    }
+
+    .roleAuthority {
+        color: #bbf7d0;
+        border-color: #166534;
+        background: rgba(22, 101, 52, 0.32);
+    }
+
+    .roleResident {
+        color: #bfdbfe;
+        border-color: #1d4ed8;
+        background: rgba(29, 78, 216, 0.28);
+    }
+
+    .statusActive {
+        color: #bbf7d0;
+        border-color: #166534;
+        background: rgba(22, 101, 52, 0.32);
+    }
+
+    .statusInactive {
+        color: #fecaca;
+        border-color: #7f1d1d;
+        background: rgba(127, 29, 29, 0.25);
+    }
+
+    .list li {
+        background: rgba(15, 23, 42, 0.82);
     }
 }

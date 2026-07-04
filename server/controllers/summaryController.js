@@ -34,6 +34,7 @@ const generateSummaryReport = async (req, res, next) => {
       FROM reports r
       JOIN category_authority_map cam ON r.category_id = cam.category_id
       WHERE cam.authority_id = $1 
+        AND r.resident_deleted_at IS NULL
         ${wardFilter}
         AND r.created_at >= $2 
         AND r.created_at <= $3
@@ -44,11 +45,13 @@ const generateSummaryReport = async (req, res, next) => {
 
     // 2) Escalation volume in same window.
     const escQuery = `
-      SELECT COUNT(id) as escalated_issues
-      FROM escalations
-      WHERE authority_id = $1
-        AND escalated_at >= $2 
-        AND escalated_at <= $3
+      SELECT COUNT(e.id) as escalated_issues
+      FROM escalations e
+      JOIN reports r ON r.id = e.report_id
+      WHERE e.authority_id = $1
+        AND r.resident_deleted_at IS NULL
+        AND e.escalated_at >= $2 
+        AND e.escalated_at <= $3
     `;
     const escRes = await db.query(escQuery, [authority_id, period_start, period_end]);
     const escalated_issues = escRes.rows[0].escalated_issues;
@@ -60,6 +63,7 @@ const generateSummaryReport = async (req, res, next) => {
       JOIN categories c ON r.category_id = c.id
       JOIN category_authority_map cam ON r.category_id = cam.category_id
       WHERE cam.authority_id = $1 
+        AND r.resident_deleted_at IS NULL
         ${wardFilter}
         AND r.created_at >= $2 
         AND r.created_at <= $3

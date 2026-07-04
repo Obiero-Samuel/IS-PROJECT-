@@ -5,18 +5,30 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
+const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'is_project_session';
+
+const extractTokenFromRequest = (req) => {
+  const authHeader = req.headers['authorization'];
+  const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+
+  const cookieToken = req.cookies?.[AUTH_COOKIE_NAME];
+
+  // Prefer server-managed session cookie; keep Bearer fallback for compatibility.
+  return cookieToken || bearerToken || null;
+};
+
 /**
  * verifyToken middleware:
  * Verify JWT and attach user identity to req.user.
  */
 const verifyToken = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
+  const token = extractTokenFromRequest(req);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: { message: 'Access denied. No token provided.' } });
+  if (!token) {
+    return res.status(401).json({ error: { message: 'Access denied. No session token provided.' } });
   }
-
-  const token = authHeader.split(' ')[1];
 
   let decoded;
 

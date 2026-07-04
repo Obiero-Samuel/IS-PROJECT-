@@ -26,9 +26,10 @@ export interface AuthUser {
     last_login_at?: string | null;
 }
 
-// Standard auth response containing JWT + logged-in user details.
+// Standard auth response containing logged-in user details.
+// Token may be absent when backend uses HttpOnly cookie sessions.
 export interface AuthPayload {
-    token: string;
+    token?: string;
     user: AuthUser;
 }
 
@@ -133,6 +134,13 @@ export interface ReportsResponse {
         total: number;
         totalPages: number;
     };
+}
+
+// Response after resident deletes own report.
+export interface DeleteMyReportResponse {
+    message: string;
+    report_id: number;
+    deleted_at: string;
 }
 
 // Officer queue row shape (extended report + escalation context).

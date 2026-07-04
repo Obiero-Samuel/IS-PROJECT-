@@ -1,5 +1,12 @@
-/* This file styles analytics controls, KPI cards, and summary report grid layouts. */
+/* This file styles analytics controls, KPIs, and report cards using resident/officer visual language. */
 .generator {
+  border: 1px solid var(--border);
+  border-radius: 1.05rem;
+  padding: 0.9rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.63), rgba(255, 255, 255, 0.8)),
+    var(--surface);
+  box-shadow: var(--shadow-sm);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
@@ -15,15 +22,24 @@
   font-size: 0.8rem;
   letter-spacing: 0.03em;
   font-weight: 700;
+  color: var(--muted);
 }
 
 .field input,
 .field select {
-  border: 1px solid rgba(16, 35, 56, 0.2);
-  border-radius: 10px;
+  border: 1px solid #c9dafd;
+  border-radius: 0.72rem;
   padding: 0.6rem 0.7rem;
   font: inherit;
-  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  background: var(--surface-solid);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: #90a7ff;
+  box-shadow: 0 0 0 4px var(--ring);
 }
 
 .buttons {
@@ -32,18 +48,29 @@
 }
 
 .buttons button {
-  border: 0;
-  border-radius: 10px;
-  background: #155a96;
+  border: 1px solid transparent;
+  border-radius: 0.72rem;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
   color: #fff;
   font: inherit;
   font-weight: 700;
   padding: 0.6rem 0.8rem;
   cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.buttons button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
 }
 
 .message {
-  color: #345777;
+  margin: 0;
+  padding: 0.56rem 0.8rem;
+  border-radius: 0.76rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
 }
 
 .stats {
@@ -53,20 +80,36 @@
 }
 
 .stats article {
-  border-radius: 14px;
-  border: 1px solid rgba(16, 35, 56, 0.14);
-  background: rgba(255, 255, 255, 0.9);
-  padding: 0.85rem;
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.64), rgba(255, 255, 255, 0.82)),
+    var(--surface);
+  padding: 0.86rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stats article::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  opacity: 0.7;
+  background: linear-gradient(90deg, var(--brand), var(--brand-3));
 }
 
 .stats h3 {
   font-size: 0.95rem;
   margin-bottom: 0.35rem;
+  color: var(--muted);
 }
 
 .stats p {
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: clamp(1.45rem, 3vw, 1.95rem);
+  font-weight: 800;
+  line-height: 1.08;
 }
 
 .reportGrid {
@@ -76,13 +119,16 @@
 }
 
 .reportCard {
-  border-radius: 16px;
-  border: 1px solid rgba(16, 35, 56, 0.14);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 20px rgba(10, 34, 58, 0.08);
+  border-radius: 1.05rem;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.63), rgba(255, 255, 255, 0.8)),
+    var(--surface);
+  box-shadow: var(--shadow-sm);
   padding: 0.9rem;
   display: grid;
   gap: 0.55rem;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .reportTop {
@@ -90,14 +136,16 @@
   justify-content: space-between;
   align-items: center;
   font-family: var(--font-source-code), monospace;
+  color: var(--muted);
 }
 
 .reportTop span {
   font-size: 0.78rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  background: #edf5ff;
-  border: 1px solid rgba(20, 90, 150, 0.22);
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
 }
 
 .reportCard h2 {
@@ -106,13 +154,24 @@
 
 .reportCard p,
 .reportCard li {
-  color: #45617d;
+  color: var(--muted);
 }
 
 .reportCard ul {
   list-style: none;
   display: grid;
   gap: 0.25rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+
+  .generator:hover,
+  .reportCard:hover,
+  .stats article:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+  }
 }
 
 @media (max-width: 980px) {
@@ -125,5 +184,27 @@
 
   .buttons {
     flex-direction: column;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+
+  .generator,
+  .message,
+  .stats article,
+  .reportCard {
+    background: rgba(15, 23, 42, 0.82);
+  }
+
+  .field input,
+  .field select {
+    border-color: #30486f;
+    background: #0b1530;
+  }
+
+  .reportTop span {
+    border-color: #4a5f99;
+    color: #c8d4ff;
+    background: rgba(98, 111, 196, 0.2);
   }
 }

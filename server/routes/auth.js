@@ -10,6 +10,7 @@ const router = express.Router();
 const {
     register,
     login,
+    logout,
     getMe,
     getMyProfile,
     updateMyProfile,
@@ -57,6 +58,9 @@ router.post('/register', register);
 
 // Login and issue JWT.
 router.post('/login', login);
+
+// Logout and clear session cookie.
+router.post('/logout', logout);
 
 // Verify email OTP.
 router.post('/verify-email-otp', verifyEmailOtp);
