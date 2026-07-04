@@ -1,3 +1,6 @@
+/**
+ * New report submission form.
+ */
 "use client";
 
 import dynamic from "next/dynamic";
@@ -13,6 +16,7 @@ const LeafletMapPicker = dynamic(() => import("@/components/map/LeafletMapPicker
 });
 
 export default function NewReportPage() {
+    // Controlled input states for report payload fields.
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [categoryId, setCategoryId] = useState("");
@@ -21,6 +25,7 @@ export default function NewReportPage() {
     const [longitude, setLongitude] = useState<number | null>(null);
     const [photo, setPhoto] = useState<File | null>(null);
 
+    // Supporting UI/state for options + async feedback.
     const [categories, setCategories] = useState<Category[]>([]);
     const [loadingCategories, setLoadingCategories] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -30,6 +35,7 @@ export default function NewReportPage() {
     useEffect(() => {
         const run = async () => {
             try {
+                // Load category options once for form submit.
                 const result = await getCategories();
                 setCategories(result);
             } catch {
@@ -43,8 +49,10 @@ export default function NewReportPage() {
     }, []);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        // Prevent default browser submit to keep React control.
         event.preventDefault();
 
+        // Report submission requires auth token.
         const token = getToken();
         if (!token) {
             setError("Please login first to submit a report.");
@@ -56,6 +64,7 @@ export default function NewReportPage() {
         setSubmitting(true);
 
         try {
+            // Multipart payload bundles fields + optional photo.
             const formData = new FormData();
             formData.append("title", title);
             formData.append("description", description);
@@ -77,6 +86,7 @@ export default function NewReportPage() {
             const result = await createReport(token, formData);
             setSuccess(`Report submitted successfully. Tracking Number: ${result.report.tracking_number}`);
 
+            // Reset for quick next submission.
             setTitle("");
             setDescription("");
             setCategoryId("");
@@ -97,6 +107,7 @@ export default function NewReportPage() {
             <main className="main">
                 <div className="container stack">
                     <section className="card stack">
+                        {/* Form intro section. */}
                         <h1 className="title">Submit a new report</h1>
                         <p className="subtitle">Tell us what happened, where it happened, and add a photo if available.</p>
                     </section>
@@ -132,6 +143,7 @@ export default function NewReportPage() {
                                 {loadingCategories ? (
                                     <input value="Loading categories..." readOnly />
                                 ) : categories.length > 0 ? (
+                                    // Use dropdown when backend categories are available.
                                     <select
                                         required
                                         value={categoryId}
@@ -172,6 +184,7 @@ export default function NewReportPage() {
                                     latitude={latitude}
                                     longitude={longitude}
                                     onPick={(lat, lng) => {
+                                        // Save picked coordinates into form state.
                                         setLatitude(lat);
                                         setLongitude(lng);
                                     }}

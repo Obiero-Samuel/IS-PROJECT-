@@ -1,3 +1,6 @@
+/**
+ * This file handles map-based coordinate picking for new reports.
+ */
 "use client";
 
 import { useMemo } from "react";
@@ -19,6 +22,7 @@ interface PickerProps {
 }
 
 function PickerEvents({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+    // Register click listener on the map and send clicked coordinates upstream.
     useMapEvents({
         click: (event) => {
             onPick(event.latlng.lat, event.latlng.lng);
@@ -29,6 +33,7 @@ function PickerEvents({ onPick }: { onPick: (lat: number, lng: number) => void }
 }
 
 export default function LeafletMapPicker({ latitude, longitude, onPick }: PickerProps) {
+    // If user already picked a point, center there; otherwise use default Nairobi center.
     const center = useMemo<LatLngExpression>(
         () => [latitude ?? -1.286389, longitude ?? 36.817223],
         [latitude, longitude]
@@ -41,8 +46,10 @@ export default function LeafletMapPicker({ latitude, longitude, onPick }: Picker
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+                {/* This invisible helper attaches the click behavior above. */}
                 <PickerEvents onPick={onPick} />
                 {latitude != null && longitude != null && (
+                    // Show marker only after user has selected coordinates.
                     <Marker position={[latitude, longitude]} icon={markerIcon} />
                 )}
             </MapContainer>

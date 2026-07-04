@@ -1,3 +1,6 @@
+/**
+ * This file handles the public reports list and upvote actions.
+ */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,9 +13,12 @@ import { getToken } from "@/lib/auth";
 import type { ReportItem } from "@/lib/types";
 
 export default function PublicReportsPage() {
+    // Async UI states for loading and actions.
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // Loaded report collection shown in cards.
     const [reports, setReports] = useState<ReportItem[]>([]);
+    // Track which row is currently submitting an upvote.
     const [upvotingId, setUpvotingId] = useState<number | null>(null);
 
     useEffect(() => {
@@ -31,6 +37,7 @@ export default function PublicReportsPage() {
     }, []);
 
     const handleUpvote = async (reportId: number) => {
+        // Upvoting requires logged-in session.
         const token = getToken();
         if (!token) {
             setError("Please login to upvote reports.");
@@ -42,6 +49,7 @@ export default function PublicReportsPage() {
 
         try {
             const result = await toggleUpvote(token, reportId);
+            // Optimistically update local list with latest upvote count from server.
             setReports((current) =>
                 current.map((report) =>
                     report.id === reportId ? { ...report, upvote_count: result.upvote_count } : report
@@ -75,6 +83,7 @@ export default function PublicReportsPage() {
                         <section className="grid two">
                             {reports.map((report) => (
                                 <article key={report.id} className="card stack">
+                                    {/* Core report details shown in compact card format. */}
                                     <div className="row">
                                         <strong>{report.title}</strong>
                                         <span className="badge">{report.status}</span>
@@ -85,6 +94,7 @@ export default function PublicReportsPage() {
                                     <p className="muted">Location: {report.location_address || "Not provided"}</p>
 
                                     {report.media_url && toPublicAssetUrl(report.media_url) && (
+                                        // Next/Image is used for optimized report photo rendering.
                                         <Image
                                             src={toPublicAssetUrl(report.media_url) as string}
                                             alt={report.title}

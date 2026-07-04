@@ -1,3 +1,6 @@
+/**
+ * This file handles the ward map view with report markers and upvote actions.
+ */
 "use client";
 
 import dynamic from "next/dynamic";
@@ -14,8 +17,10 @@ const PublicReportsMap = dynamic(() => import("@/components/map/PublicReportsMap
 });
 
 export default function WardMapPage() {
+    // Async load/error states for map data.
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // Reports array is passed into map markers.
     const [reports, setReports] = useState<ReportItem[]>([]);
 
     useEffect(() => {
@@ -34,6 +39,7 @@ export default function WardMapPage() {
     }, []);
 
     const handleUpvote = async (reportId: number) => {
+        // Upvote from map popups requires login token.
         const token = getToken();
         if (!token) {
             setError("Login is required to upvote from the map.");
@@ -44,6 +50,7 @@ export default function WardMapPage() {
 
         try {
             const result = await toggleUpvote(token, reportId);
+            // Keep local marker popup counts in sync with server result.
             setReports((current) =>
                 current.map((report) =>
                     report.id === reportId ? { ...report, upvote_count: result.upvote_count } : report
@@ -71,6 +78,7 @@ export default function WardMapPage() {
                     {error && <p className="message error">{error}</p>}
                     {loading && <p className="message">Loading map data...</p>}
 
+                    {/* Map renders once report data has loaded. */}
                     {!loading && <PublicReportsMap reports={reports} onUpvote={handleUpvote} />}
                 </div>
             </main>

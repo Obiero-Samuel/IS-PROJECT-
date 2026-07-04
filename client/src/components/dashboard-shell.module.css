@@ -1,3 +1,4 @@
+/* This file styles the shared dashboard shell layout and token card. */
 .canvas {
   min-height: 100vh;
   padding: 2rem clamp(1rem, 3vw, 2.5rem) 2.5rem;

@@ -1,3 +1,7 @@
+/**
+ * This file defines authentication-related routes.
+ * It handles signup/login, email OTP verification, and profile read/update endpoints.
+ */
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
@@ -15,6 +19,7 @@ const {
 } = require('../controllers/authController');
 const { verifyToken } = require('../middleware/auth');
 
+// Store profile photos in uploads/ with unique names.
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, path.join(__dirname, '../uploads'));
@@ -26,6 +31,7 @@ const storage = multer.diskStorage({
     }
 });
 
+// Accept images only for profile uploads.
 const fileFilter = (req, file, cb) => {
     const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -36,34 +42,35 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
+// Multer guardrails: type filter + 5 MB max file size.
 const upload = multer({
     storage,
     fileFilter,
     limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// GET /api/auth/wards
+// Ward options for registration/profile forms.
 router.get('/wards', listWards);
 
-// POST /api/auth/register
+// Create account.
 router.post('/register', register);
 
-// POST /api/auth/login
+// Login and issue JWT.
 router.post('/login', login);
 
-// POST /api/auth/verify-email-otp
+// Verify email OTP.
 router.post('/verify-email-otp', verifyEmailOtp);
 
-// POST /api/auth/resend-verification-otp
+// Resend verification OTP.
 router.post('/resend-verification-otp', resendVerificationOtp);
 
-// GET /api/auth/me  — protected
+// Basic authenticated session identity.
 router.get('/me', verifyToken, getMe);
 
-// GET /api/auth/profile — protected
+// Get profile details.
 router.get('/profile', verifyToken, getMyProfile);
 
-// PATCH /api/auth/profile — protected (supports optional profile photo upload)
+// Update profile fields and optional photo.
 router.patch('/profile', verifyToken, upload.single('photo'), updateMyProfile);
 
 module.exports = router;

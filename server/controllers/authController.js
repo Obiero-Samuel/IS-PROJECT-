@@ -1,3 +1,6 @@
+/**
+ * This file handles account registration, login, email OTP verification, and profile APIs.
+ */
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -10,10 +13,13 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PROFILE_MAX_EDITS = parseInt(process.env.PROFILE_MAX_EDITS || '5', 10);
 const EXPOSE_DEV_OTP = !IS_PRODUCTION && String(process.env.EXPOSE_DEV_OTP || '').toLowerCase() === 'true';
 
+// Normalize email once for consistent lookups.
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
+// Store OTP as hash (never plaintext).
 const hashOtp = (otp) => crypto.createHash('sha256').update(otp).digest('hex');
 
+// 6-digit OTP.
 const generateOtp = () => `${Math.floor(100000 + Math.random() * 900000)}`;
 
 const getMailer = () => {
@@ -35,6 +41,7 @@ const getMailer = () => {
 };
 
 const sendVerificationOtpEmail = async (email, username, otp) => {
+  // SMTP first; dev mode can fall back to debug OTP.
   const transporter = getMailer();
 
   if (!transporter) {
@@ -83,6 +90,7 @@ const sendVerificationOtpEmail = async (email, username, otp) => {
 };
 
 const issueAndStoreOtp = async (userId, email, username) => {
+  // Generate OTP, persist hash+expiry, then send mail.
   const otp = generateOtp();
   const otpHash = hashOtp(otp);
 
@@ -111,14 +119,21 @@ const toAuthUser = (user) => ({
   email: user.email,
   role: user.role,
   ward_id: user.ward_id,
+  authority_id: user.authority_id ?? null,
+  is_active: user.is_active ?? true,
+  last_login_at: user.last_login_at ?? null,
 });
 
+// Profile payload extends session fields with editable profile data.
 const toProfile = (user) => ({
   id: user.id,
   username: user.username,
   email: user.email,
   role: user.role,
   ward_id: user.ward_id,
+  authority_id: user.authority_id ?? null,
+  is_active: user.is_active ?? true,
+  last_login_at: user.last_login_at ?? null,
   full_name: user.full_name ?? user.username,
   phone_number: user.phone_number ?? null,
   date_of_birth: user.date_of_birth ?? null,
@@ -139,6 +154,7 @@ const profileEditsMeta = (user) => {
 };
 
 const buildOtpDebug = (otpResult) => {
+  // Never expose debug details in production.
   if (IS_PRODUCTION) return undefined;
 
   const mustExposeOtp = EXPOSE_DEV_OTP || otpResult?.mailInfo?.delivered === false;
@@ -154,12 +170,16 @@ const buildOtpDebug = (otpResult) => {
   };
 };
 
-/**
- * Helper: sign a JWT for a given user record
- */
+// Sign JWT from current user record.
 const signToken = (user) => {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      authority_id: user.authority_id ?? null,
+      is_active: user.is_active ?? true,
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
@@ -174,7 +194,7 @@ const register = async (req, res, next) => {
     const normalizedEmail = normalizeEmail(email);
     const requestedRole = typeof role_context === 'string' ? role_context.trim().toLowerCase() : 'resident';
 
-    // Basic validation
+    // Validate payload and role-specific requirements.
     if (!username || !normalizedEmail || !password) {
       return res.status(400).json({ error: { message: 'username, email, and password are required.' } });
     }
@@ -195,14 +215,14 @@ const register = async (req, res, next) => {
     }
 
     if (requestedRole === 'resident') {
-      // Check ward exists
+      // Validate referenced ward.
       const wardCheck = await db.query('SELECT id FROM wards WHERE id = $1', [residentWardId]);
       if (wardCheck.rows.length === 0) {
         return res.status(400).json({ error: { message: 'Invalid ward_id.' } });
       }
     }
 
-    // Check duplicate email or username
+    // Uniqueness check.
     const existing = await db.query(
       'SELECT id FROM users WHERE email = $1 OR username = $2',
       [normalizedEmail, username]
@@ -211,10 +231,10 @@ const register = async (req, res, next) => {
       return res.status(409).json({ error: { message: 'Email or username already in use.' } });
     }
 
-    // Hash password
+    // Hash password before insert.
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Insert user
+    // Create unverified user, then issue verification OTP.
     const result = await db.query(
       `INSERT INTO users (username, email, password_hash, role, ward_id, is_email_verified)
        VALUES ($1, $2, $3, $4, $5, FALSE)
@@ -261,9 +281,9 @@ const login = async (req, res, next) => {
       return res.status(400).json({ error: { message: 'username, email, and password are required.' } });
     }
 
-    // Look up user
+    // Authenticate username+email first.
     const result = await db.query(
-      `SELECT id, username, email, password_hash, role, ward_id, is_email_verified
+      `SELECT *
        FROM users
        WHERE email = $1 AND username = $2`,
       [normalizedEmail, username]
@@ -274,12 +294,14 @@ const login = async (req, res, next) => {
 
     const user = result.rows[0];
 
+    // Enforce portal-role context if client specified one.
     if (typeof role_context === 'string' && role_context.trim() && role_context !== user.role) {
       return res.status(403).json({
         error: { message: `This account is not allowed for ${role_context} portal access.` },
       });
     }
 
+    // Residents must log in with their registered ward.
     if (user.role === 'resident') {
       if (!ward_id) {
         return res.status(400).json({ error: { message: 'ward_id is required for resident login.' } });
@@ -290,10 +312,26 @@ const login = async (req, res, next) => {
       }
     }
 
-    // Verify password
+    // Verify password hash.
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       return res.status(401).json({ error: { message: 'Invalid credentials.' } });
+    }
+
+    // Enforce account lifecycle and verification checks.
+    const isActive = Object.prototype.hasOwnProperty.call(user, 'is_active')
+      ? Boolean(user.is_active)
+      : true;
+
+    if (!isActive) {
+      return res.status(403).json({ error: { message: 'Account is deactivated. Please contact admin.' } });
+    }
+
+    const hasAuthorityColumn = Object.prototype.hasOwnProperty.call(user, 'authority_id');
+    if (user.role === 'authority' && hasAuthorityColumn && !user.authority_id) {
+      return res.status(403).json({
+        error: { message: 'Officer account is not mapped to an authority. Contact admin.' },
+      });
     }
 
     if (!user.is_email_verified) {
@@ -304,12 +342,31 @@ const login = async (req, res, next) => {
       });
     }
 
-    const token = signToken(user);
+    // Update last_login_at when available, then sign JWT.
+    let userForSession = user;
+    const hasLastLoginColumn = Object.prototype.hasOwnProperty.call(user, 'last_login_at');
+
+    if (hasLastLoginColumn) {
+      const loginUpdateRes = await db.query(
+        `UPDATE users
+         SET last_login_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [user.id]
+      );
+
+      if (loginUpdateRes.rows.length > 0) {
+        userForSession = loginUpdateRes.rows[0];
+      }
+    }
+
+    const token = signToken(userForSession);
 
     res.json({
       message: 'Login successful.',
       token,
-      user: toAuthUser(user)
+      user: toAuthUser(userForSession)
     });
   } catch (err) {
     next(err);
@@ -329,8 +386,7 @@ const verifyEmailOtp = async (req, res, next) => {
     }
 
     const userRes = await db.query(
-      `SELECT id, username, email, role, ward_id, is_email_verified,
-              email_verification_otp_hash, email_verification_otp_expires_at
+      `SELECT *
        FROM users
        WHERE email = $1`,
       [normalizedEmail]
@@ -351,6 +407,7 @@ const verifyEmailOtp = async (req, res, next) => {
       });
     }
 
+    // OTP must exist, be unexpired, and match submitted code.
     if (!user.email_verification_otp_hash || !user.email_verification_otp_expires_at) {
       return res.status(400).json({ error: { message: 'No active OTP. Please request a new one.' } });
     }
@@ -398,6 +455,7 @@ const resendVerificationOtp = async (req, res, next) => {
       return res.status(400).json({ error: { message: 'email is required.' } });
     }
 
+    // Only unverified users can request resend.
     const userRes = await db.query(
       `SELECT id, username, email, is_email_verified
        FROM users
@@ -439,6 +497,7 @@ const listWards = async (req, res, next) => {
     const conditions = ['is_active = TRUE'];
     const values = [];
 
+    // Compose optional ward filters.
     if (typeof county === 'string' && county.trim()) {
       values.push(county.trim());
       conditions.push(`county = $${values.length}`);
@@ -482,8 +541,7 @@ const listWards = async (req, res, next) => {
 const getMe = async (req, res, next) => {
   try {
     const result = await db.query(
-      `SELECT id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
-              residence, profile_photo_url, bio, profile_edit_count, created_at
+      `SELECT *
        FROM users
        WHERE id = $1`,
       [req.user.id]
@@ -508,8 +566,7 @@ const getMe = async (req, res, next) => {
 const getMyProfile = async (req, res, next) => {
   try {
     const result = await db.query(
-      `SELECT id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
-              residence, profile_photo_url, bio, profile_edit_count, created_at
+      `SELECT *
        FROM users
        WHERE id = $1`,
       [req.user.id]
@@ -536,8 +593,7 @@ const getMyProfile = async (req, res, next) => {
 const updateMyProfile = async (req, res, next) => {
   try {
     const userResult = await db.query(
-      `SELECT id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
-              residence, profile_photo_url, bio, profile_edit_count, created_at
+      `SELECT *
        FROM users
        WHERE id = $1`,
       [req.user.id]
@@ -547,6 +603,7 @@ const updateMyProfile = async (req, res, next) => {
       return res.status(404).json({ error: { message: 'User not found.' } });
     }
 
+    // Profile edits are quota-limited.
     const currentUser = userResult.rows[0];
     const editMeta = profileEditsMeta(currentUser);
     if (editMeta.remaining <= 0) {
@@ -556,6 +613,7 @@ const updateMyProfile = async (req, res, next) => {
       });
     }
 
+    // Build partial update statement safely.
     const updates = [];
     const values = [];
 
@@ -639,11 +697,11 @@ const updateMyProfile = async (req, res, next) => {
       `UPDATE users
        SET ${updates.join(', ')}
        WHERE id = $${values.length}
-       RETURNING id, username, email, role, ward_id, full_name, phone_number, date_of_birth,
-                 residence, profile_photo_url, bio, profile_edit_count, created_at`,
+       RETURNING *`,
       values
     );
 
+    // Re-issue JWT after profile update.
     const updatedUser = updatedUserResult.rows[0];
     const token = signToken(updatedUser);
 

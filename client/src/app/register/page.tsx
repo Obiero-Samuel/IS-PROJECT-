@@ -1,3 +1,6 @@
+/**
+ * Registration flow for residents and authority officers.
+ */
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
@@ -8,6 +11,7 @@ import { getAuth, getToken } from "@/lib/auth";
 import { defaultRouteForRole } from "@/lib/roleRouting";
 import type { Ward } from "@/lib/types";
 
+// Browser-only query helper used for optional return path.
 const getQueryParam = (key: string, fallback = "") => {
     if (typeof window === "undefined") return fallback;
     return new URLSearchParams(window.location.search).get(key) || fallback;
@@ -15,19 +19,25 @@ const getQueryParam = (key: string, fallback = "") => {
 
 export default function RegisterPage() {
     const router = useRouter();
+    // `next` keeps track of intended page after auth/verification flow.
     const nextPath = getQueryParam("next", "/my-profile");
+    // Selected registration role controls whether ward is required.
     const [portalRole, setPortalRole] = useState<"resident" | "authority">("resident");
+    // Controlled field states.
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [wardId, setWardId] = useState("");
+    // Preloaded ward options for resident registrations.
     const [wards, setWards] = useState<Ward[]>([]);
     const [loadingWards, setLoadingWards] = useState(true);
+    // Submission feedback states.
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        // Existing sessions skip registration.
         if (getToken()) {
             router.replace(defaultRouteForRole(getAuth()?.user?.role));
         }
@@ -36,6 +46,7 @@ export default function RegisterPage() {
     useEffect(() => {
         const run = async () => {
             try {
+                // Load ward options used in resident onboarding.
                 const wardList = await getWards({ county: "Nairobi", focus: "nairobi-west" });
                 setWards(wardList);
             } catch {
@@ -49,16 +60,19 @@ export default function RegisterPage() {
     }, []);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        // Keep SPA flow by preventing default HTML form submit reload.
         event.preventDefault();
         setError(null);
         setSuccessMessage(null);
         setLoading(true);
 
         try {
+            // Account is created first; OTP verification follows.
             await register(username, email, password, {
                 role_context: portalRole,
                 ward_id: portalRole === "resident" ? Number(wardId) : undefined,
             });
+            // Inform user and route them to login/verification continuation.
             setSuccessMessage("Registration successful. Check your email for OTP verification, then login and verify.");
             router.push(`/login?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email)}`);
         } catch (err) {
@@ -74,6 +88,7 @@ export default function RegisterPage() {
             <main className="main">
                 <div className="container">
                     <section className="card stack auth-card">
+                        {/* Intro section explains what this form is for. */}
                         <h1 className="title">Create account</h1>
                         <p className="subtitle">Join as a resident or authority officer and start using the platform.</p>
 
@@ -141,6 +156,7 @@ export default function RegisterPage() {
                                             placeholder="Enter ward ID"
                                         />
                                     ) : (
+                                        // Resident role picks from known wards when list is available.
                                         <select
                                             required
                                             value={wardId}
@@ -158,6 +174,7 @@ export default function RegisterPage() {
                                     )}
                                 </label>
                             ) : (
+                                // Authority signup does not ask for ward.
                                 <p className="muted">Ward is not required for authority officer signup.</p>
                             )}
 

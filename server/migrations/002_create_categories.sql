@@ -1,3 +1,5 @@
+-- This migration creates the categories table for report classification.
+-- Create categories table only once.
 IF NOT EXISTS (
   SELECT 1
   FROM sys.tables

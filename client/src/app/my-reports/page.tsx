@@ -1,3 +1,6 @@
+/**
+ * This file handles the authenticated user's submitted reports list.
+ */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,12 +13,15 @@ import { getToken } from "@/lib/auth";
 import type { ReportItem } from "@/lib/types";
 
 export default function MyReportsPage() {
+    // Basic async/page feedback states.
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // User-owned reports collection.
     const [reports, setReports] = useState<ReportItem[]>([]);
 
     useEffect(() => {
         const run = async () => {
+            // This page reads private endpoint, so token must exist first.
             const token = getToken();
 
             if (!token) {
@@ -56,6 +62,7 @@ export default function MyReportsPage() {
 
                     {!loading && !error && reports.length === 0 && (
                         <section className="card">
+                            {/* Friendly empty state for first-time users. */}
                             <p className="muted">No reports yet. Start by submitting one.</p>
                         </section>
                     )}
@@ -63,6 +70,7 @@ export default function MyReportsPage() {
                     <section className="grid two">
                         {reports.map((report) => (
                             <article key={report.id} className="card stack">
+                                {/* Per-report card with status, meta, and optional image. */}
                                 <div className="row">
                                     <strong>{report.title}</strong>
                                     <span className="badge">{report.status}</span>

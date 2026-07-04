@@ -1,11 +1,12 @@
+/**
+ * This file handles report submission, listing, detail lookup, and upvote actions.
+ */
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
 const { recordAuditTrail } = require('../services/flowAuditService');
 
-// ---------------------------------------------------------------------------
-// Tracking number generator: CP-YYYYMMDD-XXXX
-// ---------------------------------------------------------------------------
+// Tracking number format: CP-YYYYMMDD-XXXX.
 const generateTrackingNumber = () => {
   const date = new Date();
   const datePart = date.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
@@ -42,12 +43,13 @@ const createReport = async (req, res, next) => {
       return res.status(400).json({ error: { message: 'title, description, and category_id are required.' } });
     }
 
-    // Verify category exists
+    // Guard foreign-key references before insert.
     const catCheck = await db.query('SELECT id FROM categories WHERE id = $1', [category_id]);
     if (catCheck.rows.length === 0) {
       return res.status(400).json({ error: { message: 'Invalid category_id.' } });
     }
 
+    // Resolve ward from payload or authenticated resident context.
     const parsedWardId = Number(ward_id || req.user.ward_id);
     if (!Number.isInteger(parsedWardId) || parsedWardId <= 0) {
       return res.status(400).json({ error: { message: 'ward_id is required for resident report submission.' } });
@@ -58,12 +60,12 @@ const createReport = async (req, res, next) => {
       return res.status(400).json({ error: { message: 'Invalid ward_id.' } });
     }
 
-    // Build media_url if a file was uploaded
+    // Save media path only when a file is uploaded.
     const media_url = req.file
       ? `/uploads/${req.file.filename}`
       : null;
 
-    // Generate unique tracking number (retry on collision)
+    // Retry on rare tracking-number collisions.
     let tracking_number;
     let attempts = 0;
     while (attempts < 5) {
@@ -76,6 +78,7 @@ const createReport = async (req, res, next) => {
       attempts++;
     }
 
+    // Insert report and mirror event to audit trail.
     const result = await db.query(
       `INSERT INTO reports
          (user_id, category_id, ward_id, title, description, latitude, longitude,
@@ -129,6 +132,7 @@ const getReports = async (req, res, next) => {
     const limit = Math.min(100, parseInt(req.query.limit) || 10);
     const offset = (page - 1) * limit;
 
+    // Compose optional list filters.
     const conditions = [];
     const params = [];
 
@@ -162,7 +166,7 @@ const getReports = async (req, res, next) => {
       LIMIT $${params.length - 1} OFFSET $${params.length}
     `;
 
-    // Count query for pagination metadata
+    // Run list and count together for pagination metadata.
     const countParams = params.slice(0, params.length - 2);
     const countQuery = `
       SELECT COUNT(*) FROM reports r ${whereClause}
@@ -258,13 +262,13 @@ const upvoteReport = async (req, res, next) => {
     const reportId = parseInt(req.params.id);
     const userId = req.user.id;
 
-    // Check report exists
+    // Upvotes require an existing report.
     const reportCheck = await db.query('SELECT id FROM reports WHERE id = $1', [reportId]);
     if (reportCheck.rows.length === 0) {
       return res.status(404).json({ error: { message: 'Report not found.' } });
     }
 
-    // Check if already upvoted
+    // Toggle existing upvote on/off.
     const existing = await db.query(
       'SELECT * FROM upvotes WHERE user_id = $1 AND report_id = $2',
       [userId, reportId]
@@ -272,14 +276,12 @@ const upvoteReport = async (req, res, next) => {
 
     let action;
     if (existing.rows.length > 0) {
-      // Toggle off — remove upvote
       await db.query(
         'DELETE FROM upvotes WHERE user_id = $1 AND report_id = $2',
         [userId, reportId]
       );
       action = 'removed';
     } else {
-      // Toggle on — add upvote
       await db.query(
         'INSERT INTO upvotes (user_id, report_id) VALUES ($1, $2)',
         [userId, reportId]
@@ -287,7 +289,7 @@ const upvoteReport = async (req, res, next) => {
       action = 'added';
     }
 
-    // Return updated upvote count
+    // Return fresh vote count.
     const countResult = await db.query(
       'SELECT COUNT(*)::int AS upvote_count FROM upvotes WHERE report_id = $1',
       [reportId]

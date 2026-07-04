@@ -1,3 +1,6 @@
+/**
+ * This file handles the home page with role-based dashboard links.
+ */
 "use client";
 
 import Link from "next/link";
@@ -8,14 +11,20 @@ import RequireAuth from "@/components/RequireAuth";
 import { authFromSnapshot, getAuthServerSnapshot, getAuthSnapshot, subscribeAuth } from "@/lib/auth";
 
 export default function Home() {
+  // Subscribe to auth store so role-based dashboard cards update immediately.
   const authRaw = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getAuthServerSnapshot);
+  // Parse raw auth storage snapshot into structured object.
   const auth = authFromSnapshot(authRaw);
+  // Role determines which dashboard shortcuts are shown.
   const role = auth?.user?.role;
 
+  // Authority and admin users can open officer dashboard.
   const showOfficerDashboard = role === "authority" || role === "admin";
+  // Only admins can open admin and analytics dashboards.
   const showAdminDashboards = role === "admin";
 
   return (
+    // Home page is still protected so users are guided through account flows first.
     <RequireAuth>
       <NavBar />
       <main className="main">
@@ -31,6 +40,7 @@ export default function Home() {
             </div>
           </section>
 
+          {/* Resident-focused quick actions. */}
           <section className="grid two">
             <article className="card stack">
               <h2>Resident actions</h2>
@@ -51,6 +61,7 @@ export default function Home() {
             </article>
           </section>
 
+          {/* Role-aware dashboard launcher section. */}
           <section className={styles.page}>
             <div className={styles.main}>
               <div className={styles.hero}>
@@ -64,6 +75,7 @@ export default function Home() {
 
               <div className={styles.cards}>
                 {showOfficerDashboard && (
+                  // Authority/admin shortcut.
                   <Link className={styles.card} href="/officer">
                     <h2>Officer Dashboard</h2>
                     <p>Assigned reports, quick status updates, and resolution notes.</p>
@@ -71,6 +83,7 @@ export default function Home() {
                 )}
 
                 {showAdminDashboards && (
+                  // Admin-only shortcut.
                   <Link className={styles.card} href="/admin">
                     <h2>Admin Panel</h2>
                     <p>Manage users, wards, authorities, and categories from one place.</p>
@@ -78,6 +91,7 @@ export default function Home() {
                 )}
 
                 {showAdminDashboards && (
+                  // Admin-only analytics shortcut.
                   <Link className={styles.card} href="/analytics">
                     <h2>Analytics Dashboard</h2>
                     <p>Summary-report generation and trend snapshots by authority.</p>
@@ -85,6 +99,7 @@ export default function Home() {
                 )}
 
                 {!showOfficerDashboard && !showAdminDashboards && (
+                  // Resident fallback card when elevated dashboards are not available.
                   <article className={styles.card}>
                     <h2>Resident Workspace</h2>
                     <p>

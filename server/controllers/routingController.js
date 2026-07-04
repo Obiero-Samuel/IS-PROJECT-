@@ -1,3 +1,7 @@
+/**
+ * This file handles category-to-authority routing endpoint delegation.
+ */
+// Import authority controller to reuse routing logic.
 const authorityController = require('./authorityController');
 
 /**

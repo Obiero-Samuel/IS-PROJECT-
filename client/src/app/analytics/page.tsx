@@ -1,3 +1,6 @@
+/**
+ * This file handles analytics generation controls and summary report views.
+ */
 "use client";
 
 import { useMemo, useState } from "react";
@@ -6,6 +9,7 @@ import RequireAuth from "@/components/RequireAuth";
 import { apiRequest, loadStoredToken, storeToken } from "@/lib/api";
 import styles from "./page.module.css";
 
+// Shape of summary reports returned by analytics endpoints.
 type SummaryReport = {
   id: number;
   authority_id: number;
@@ -24,10 +28,12 @@ type SummaryReport = {
 };
 
 export default function AnalyticsPage() {
+  // Token + feedback + loaded summary collection.
   const [token, setToken] = useState(() => loadStoredToken());
   const [message, setMessage] = useState("");
   const [reports, setReports] = useState<SummaryReport[]>([]);
 
+  // Controlled form values for summary generation filters.
   const [authorityId, setAuthorityId] = useState("1");
   const [wardId, setWardId] = useState("");
   const [reportPeriod, setReportPeriod] = useState("monthly");
@@ -35,17 +41,20 @@ export default function AnalyticsPage() {
   const [endDate, setEndDate] = useState("2026-12-31");
 
   const saveToken = () => {
+    // Save token entered in shell card for subsequent analytics API calls.
     storeToken(token);
     setMessage("Token saved locally.");
   };
 
   const generateSummary = async () => {
+    // Basic validation before request.
     if (!authorityId.trim()) {
       setMessage("Authority ID is required.");
       return;
     }
 
     try {
+      // Generate a new summary artifact for selected authority/time window.
       await apiRequest<{ report: SummaryReport }>("/summary/generate", {
         method: "POST",
         token,
@@ -58,6 +67,7 @@ export default function AnalyticsPage() {
         },
       });
       setMessage("Summary report generated.");
+      // Refresh list so newly generated summary appears immediately.
       await loadSummaries();
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Generate summary failed.";
@@ -67,6 +77,7 @@ export default function AnalyticsPage() {
 
   const loadSummaries = async () => {
     try {
+      // Optionally scope list by authority ID.
       const query = authorityId ? `?authority_id=${authorityId}` : "";
       const result = await apiRequest<{ reports: SummaryReport[] }>(`/summary${query}`, {
         token,
@@ -80,6 +91,7 @@ export default function AnalyticsPage() {
   };
 
   const totals = useMemo(() => {
+    // Aggregate headline totals for quick KPI cards.
     return reports.reduce(
       (acc, item) => {
         acc.total += item.total_issues;
@@ -93,6 +105,7 @@ export default function AnalyticsPage() {
 
   return (
     <RequireAuth allowedRoles={["admin"]}>
+      {/* Shared dashboard shell includes navigation and token card. */}
       <DashboardShell
         title="Analytics Dashboard"
         subtitle="Generate authority summaries and monitor issue throughput trends."
@@ -100,6 +113,7 @@ export default function AnalyticsPage() {
         onTokenChange={setToken}
         onSaveToken={saveToken}
       >
+        {/* Generation/filter controls. */}
         <section className={styles.generator}>
           <div className={styles.field}>
             <label htmlFor="authority-id">Authority ID</label>
@@ -155,8 +169,10 @@ export default function AnalyticsPage() {
           </div>
         </section>
 
+        {/* Message line shows latest operation result. */}
         <p className={styles.message}>{message}</p>
 
+        {/* KPI cards summarize currently loaded summaries. */}
         <section className={styles.stats}>
           <article>
             <h3>Total issues</h3>
@@ -172,6 +188,7 @@ export default function AnalyticsPage() {
           </article>
         </section>
 
+        {/* Per-summary cards provide period-level breakdown details. */}
         <section className={styles.reportGrid}>
           {reports.map((report) => (
             <article key={report.id} className={styles.reportCard}>

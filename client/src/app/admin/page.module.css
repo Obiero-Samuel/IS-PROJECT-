@@ -1,3 +1,4 @@
+/* This file styles the admin dashboard sections, tables, forms, and badges. */
 .topBar {
     display: flex;
     flex-wrap: wrap;
@@ -187,6 +188,31 @@
     text-transform: capitalize;
 }
 
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.22rem 0.58rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.statusActive {
+    background: rgba(6, 95, 70, 0.12);
+    color: #065f46;
+    border-color: rgba(6, 95, 70, 0.26);
+}
+
+.statusInactive {
+    background: rgba(185, 28, 28, 0.1);
+    color: #991b1b;
+    border-color: rgba(153, 27, 27, 0.26);
+}
+
 .roleAdmin {
     background: rgba(147, 51, 234, 0.12);
     color: #6b21a8;
@@ -210,6 +236,13 @@
 .formGridThree {
     display: grid;
     gap: 0.62rem;
+}
+
+.actionRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .createRow {
@@ -236,6 +269,19 @@
 
 .createRow button:hover,
 .addButton:hover {
+    filter: brightness(1.06);
+}
+
+.dangerButton {
+    border: 0;
+    background: #8b1e2d;
+    color: #fff;
+    font-weight: 700;
+    padding: 0.5rem 0.65rem;
+    cursor: pointer;
+}
+
+.dangerButton:hover {
     filter: brightness(1.06);
 }
 

@@ -1,3 +1,6 @@
+/**
+ * This file handles profile viewing and profile update actions.
+ */
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
@@ -10,6 +13,7 @@ import { getAuth, getToken, setAuth } from "@/lib/auth";
 import type { ProfileEditsMeta, UserProfile } from "@/lib/types";
 import styles from "./profile.module.css";
 
+// Safe default edit-metadata while real profile data is still loading.
 const EMPTY_EDIT_META: ProfileEditsMeta = {
     used: 0,
     max: 0,
@@ -18,8 +22,10 @@ const EMPTY_EDIT_META: ProfileEditsMeta = {
 
 export default function MyProfilePage() {
     const router = useRouter();
+    // Read current auth user for fallback display values (e.g., avatar initial).
     const authUser = getAuth()?.user;
 
+    // Profile data and request-status states.
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [editMeta, setEditMeta] = useState<ProfileEditsMeta>(EMPTY_EDIT_META);
     const [loading, setLoading] = useState(true);
@@ -27,6 +33,7 @@ export default function MyProfilePage() {
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
 
+    // Controlled inputs for profile edit form.
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [phoneNumber, setPhoneNumber] = useState("");
@@ -35,11 +42,13 @@ export default function MyProfilePage() {
     const [bio, setBio] = useState("");
     const [photoFile, setPhotoFile] = useState<File | null>(null);
 
+    // Derived UI values from loaded profile/edit metadata.
     const canEdit = editMeta.remaining > 0;
     const joinedOn = profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "-";
 
     useEffect(() => {
         const run = async () => {
+            // Profile API is private, so user must be authenticated.
             const token = getToken();
             if (!token) {
                 router.replace("/register?next=%2Fmy-profile");
@@ -50,10 +59,12 @@ export default function MyProfilePage() {
             setError(null);
 
             try {
+                // Load profile + edit counters from backend.
                 const result = await getMyProfile(token);
                 setProfile(result.profile);
                 setEditMeta(result.profileEdits);
 
+                // Pre-fill form controls using loaded profile values.
                 setFullName(result.profile.full_name ?? "");
                 setEmail(result.profile.email ?? "");
                 setPhoneNumber(result.profile.phone_number ?? "");
@@ -71,6 +82,7 @@ export default function MyProfilePage() {
     }, [router]);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        // Keep form submit in React flow (no page refresh).
         event.preventDefault();
         setError(null);
         setMessage(null);
@@ -89,6 +101,7 @@ export default function MyProfilePage() {
         setSaving(true);
 
         try {
+            // Send latest edited fields and optional photo upload.
             const result = await updateMyProfile(token, {
                 full_name: fullName,
                 email,
@@ -99,10 +112,13 @@ export default function MyProfilePage() {
                 photo: photoFile,
             });
 
+            // Backend can return refreshed auth user info; keep local auth store synchronized.
             setAuth({ token: result.token, user: result.user });
+            // Refresh profile card and edit counter details from response.
             setProfile(result.profile);
             setEditMeta(result.profileEdits);
             setMessage(result.message);
+            // Clear selected file after successful upload.
             setPhotoFile(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to update profile.");
@@ -111,6 +127,7 @@ export default function MyProfilePage() {
         }
     };
 
+    // Resolve backend photo path into a full URL usable by Next/Image.
     const photoUrl = toPublicAssetUrl(profile?.profile_photo_url);
 
     return (
@@ -136,6 +153,7 @@ export default function MyProfilePage() {
 
                         {!loading && (
                             <div className={styles.profileLayout}>
+                                {/* Left card shows compact profile summary + avatar. */}
                                 <aside className={`${styles.summaryCard} card`}>
                                     <div className={styles.avatarWrap}>
                                         {photoUrl ? (
@@ -148,6 +166,7 @@ export default function MyProfilePage() {
                                                 sizes="132px"
                                             />
                                         ) : (
+                                            // Fallback avatar is first letter of name/username.
                                             <div className={styles.avatarFallback}>
                                                 {(profile?.full_name || authUser?.username || "U")
                                                     .trim()
@@ -158,6 +177,7 @@ export default function MyProfilePage() {
                                     </div>
 
                                     <div className="stack">
+                                        {/* Read-only summary facts for quick reference. */}
                                         <h2>{profile?.full_name || authUser?.username}</h2>
                                         <p className="muted">{profile?.email}</p>
                                         <p className="muted">Role: {profile?.role}</p>
@@ -166,6 +186,7 @@ export default function MyProfilePage() {
                                     </div>
                                 </aside>
 
+                                {/* Right card contains editable profile form fields. */}
                                 <section className={`${styles.formCard} card stack`}>
                                     <h2>Edit profile</h2>
                                     <form onSubmit={handleSubmit}>

@@ -1,10 +1,13 @@
+/**
+ * This file contains security middleware.
+ * It approves authentication from JWT tokens and enforces role-based authorization.
+ */
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
 /**
- * Middleware: verifyToken
- * Reads the Authorization: Bearer <token> header, verifies the JWT,
- * and attaches req.user = { id, email, role } from the database.
+ * verifyToken middleware:
+ * Verify JWT and attach user identity to req.user.
  */
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -25,7 +28,7 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const userRes = await db.query(
-      'SELECT id, email, role, ward_id FROM users WHERE id = $1',
+      'SELECT * FROM users WHERE id = $1',
       [decoded.id]
     );
 
@@ -34,7 +37,23 @@ const verifyToken = async (req, res, next) => {
     }
 
     const user = userRes.rows[0];
-    req.user = { id: user.id, email: user.email, role: user.role, ward_id: user.ward_id };
+
+    const isActive = Object.prototype.hasOwnProperty.call(user, 'is_active')
+      ? Boolean(user.is_active)
+      : true;
+
+    if (!isActive) {
+      return res.status(403).json({ error: { message: 'Account is deactivated. Please contact admin.' } });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      ward_id: user.ward_id,
+      authority_id: user.authority_id ?? null,
+      is_active: isActive,
+    };
     next();
   } catch (err) {
     next(err);
@@ -42,8 +61,9 @@ const verifyToken = async (req, res, next) => {
 };
 
 /**
- * Middleware: requireRole
- * Usage: requireRole('admin') or requireRole('authority', 'admin')
+ * requireRole middleware:
+ * Allow access only for listed roles.
+ * Example usage: requireRole('admin') or requireRole('authority', 'admin').
  */
 const requireRole = (...roles) => {
   return (req, res, next) => {

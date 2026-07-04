@@ -1,3 +1,7 @@
+/**
+ * This file starts the backend API.
+ * It sets common middleware, connects route modules, checks DB health, and runs scheduled jobs.
+ */
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -22,18 +26,18 @@ const { runWeeklyAnalytics } = require('./jobs/weeklyAnalyticsJob');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
+// Keep middleware order predictable: CORS -> body parsers -> logger.
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Serve uploaded photos as static files
+// Expose uploaded files at stable public URLs.
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
-// Root
+// Lightweight API landing payload.
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to the IS PROJECT Express API',
@@ -47,7 +51,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check
+// Health check includes DB reachability.
 app.get('/api/health', async (req, res, next) => {
   try {
     const result = await db.query('SELECT NOW()');
@@ -61,7 +65,7 @@ app.get('/api/health', async (req, res, next) => {
   }
 });
 
-// Feature routers
+// Domain route mounts under /api/* (frontend contract).
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/authority', authorityRoutes);
@@ -75,7 +79,7 @@ app.use('/api/escalations', escalationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/automation', automationRoutes);
 
-// Manual trigger for cron job (admin only, for testing)
+// Admin-only manual trigger for overdue check job.
 const { verifyToken, requireRole } = require('./middleware/auth');
 app.post('/api/admin/jobs/escalation-overdue', verifyToken, requireRole('admin'), async (req, res, next) => {
   try {
@@ -86,12 +90,13 @@ app.post('/api/admin/jobs/escalation-overdue', verifyToken, requireRole('admin')
   }
 });
 
-// ─── Global Error Handler ────────────────────────────────────────────────────
+// Global API error shape.
 app.use((err, req, res, next) => {
   // Handle multer errors specifically
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ error: { message: 'File too large. Maximum size is 5 MB.' } });
   }
+  // Central log for all uncaught request errors.
   console.error('Error:', err.message);
   res.status(err.status || 500).json({
     error: {
@@ -101,18 +106,18 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
+// Boot: verify DB, schedule jobs, then listen.
 const startServer = async () => {
   try {
     await db.query('SELECT 1');
     console.log('✅ Connected to PostgreSQL:', process.env.DB_NAME || 'is_project_db');
 
-    // Deadline monitor cadence: every day at 00:00
+    // Daily overdue recalculation.
     cron.schedule('0 0 * * *', () => {
       checkOverdueEscalations().catch(console.error);
     });
 
-    // Analytics scheduler cadence: every Monday at 06:00
+    // Weekly analytics snapshot.
     cron.schedule('0 6 * * 1', () => {
       runWeeklyAnalytics({ triggeredBy: 'system' }).catch(console.error);
     });

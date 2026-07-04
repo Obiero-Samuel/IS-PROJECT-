@@ -1,3 +1,6 @@
+/**
+ * This file handles summary report generation and summary report retrieval.
+ */
 const db = require('../config/db');
 
 // ============================================================================
@@ -17,11 +20,10 @@ const generateSummaryReport = async (req, res, next) => {
       return res.status(400).json({ error: { message: 'Missing required fields for generation.' } });
     }
 
-    // Prepare filter conditions
+    // Optional ward scope.
     const wardFilter = ward_id ? `AND r.ward_id = ${parseInt(ward_id)}` : '';
-    
-    // 1. Calculate aggregated report stats
-    // We join category_authority_map to ensure reports actually belong to this authority's scope
+
+    // 1) Core report metrics in this authority scope.
     const statsQuery = `
       SELECT 
         COUNT(r.id) as total_issues,
@@ -40,7 +42,7 @@ const generateSummaryReport = async (req, res, next) => {
     const statsRes = await db.query(statsQuery, [authority_id, period_start, period_end]);
     const stats = statsRes.rows[0];
 
-    // 2. Count escalations
+    // 2) Escalation volume in same window.
     const escQuery = `
       SELECT COUNT(id) as escalated_issues
       FROM escalations
@@ -51,7 +53,7 @@ const generateSummaryReport = async (req, res, next) => {
     const escRes = await db.query(escQuery, [authority_id, period_start, period_end]);
     const escalated_issues = escRes.rows[0].escalated_issues;
 
-    // 3. Find top category
+    // 3) Top category for summary narration.
     const topCatQuery = `
       SELECT c.name, COUNT(r.id) as count
       FROM reports r
@@ -68,7 +70,7 @@ const generateSummaryReport = async (req, res, next) => {
     const topCatRes = await db.query(topCatQuery, [authority_id, period_start, period_end]);
     const top_category = topCatRes.rows.length > 0 ? topCatRes.rows[0].name : null;
 
-    // 4. Upsert into summary_reports
+    // 4) Upsert one canonical row per summary period key.
     const upsertQuery = `
       INSERT INTO summary_reports (
         authority_id, ward_id, report_period, period_start, period_end,
@@ -93,10 +95,10 @@ const generateSummaryReport = async (req, res, next) => {
     `;
 
     const upsertParams = [
-      authority_id, 
-      ward_id || null, 
-      report_period, 
-      period_start, 
+      authority_id,
+      ward_id || null,
+      report_period,
+      period_start,
       period_end,
       stats.total_issues || 0,
       stats.open_issues || 0,
@@ -124,6 +126,7 @@ const listSummaryReports = async (req, res, next) => {
     let query = 'SELECT * FROM summary_reports';
     let params = [];
 
+    // Optional authority filter.
     if (authority_id) {
       query += ' WHERE authority_id = $1';
       params.push(authority_id);
@@ -144,6 +147,7 @@ const listSummaryReports = async (req, res, next) => {
 const getSummaryReportById = async (req, res, next) => {
   try {
     const reportId = parseInt(req.params.id);
+    // Join names to avoid extra frontend lookups.
     const result = await db.query(
       `SELECT sr.*, a.name as authority_name, w.name as ward_name
        FROM summary_reports sr
