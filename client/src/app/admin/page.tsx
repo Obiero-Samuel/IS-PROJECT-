@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import RequireAuth from "@/components/RequireAuth";
 import {
+    API_BASE_URL,
     apiRequest,
     deleteCategoryAuthorityMapping,
     downloadAdminWeeklyExport,
@@ -507,7 +508,12 @@ export default function AdminPage() {
             URL.revokeObjectURL(objectUrl);
             setMessage(`Downloaded export #${item.id}.`);
         } catch (error) {
-            const msg = error instanceof Error ? error.message : "Failed to download weekly export.";
+            // Fallback: direct browser download navigation if blob-based flow fails.
+            const directUrl = `${API_BASE_URL}/admin/weekly-exports/${item.id}/download`;
+            window.location.assign(directUrl);
+            const msg = error instanceof Error
+                ? `${error.message} Retrying with direct download...`
+                : "Retrying with direct download...";
             setMessage(msg);
         }
     };

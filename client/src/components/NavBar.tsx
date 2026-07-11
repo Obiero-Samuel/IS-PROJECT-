@@ -61,8 +61,8 @@ export default function NavBar() {
                             <Link href="/reports/new" className={linkClass("/reports/new")}>Submit</Link>
                             <Link href="/my-reports" className={linkClass("/my-reports")}>My reports</Link>
                             <Link href="/ward-map" className={linkClass("/ward-map")}>Ward map</Link>
-                            {(user.role === "authority" || user.role === "admin") && (
-                                // Officer workspace is for authority + admin roles.
+                            {user.role === "authority" && (
+                                // Officer workspace is for authority users.
                                 <Link href="/officer" className={linkClass("/officer")}>Officer</Link>
                             )}
                             {user.role === "admin" && (

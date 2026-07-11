@@ -1366,7 +1366,7 @@ const downloadWeeklyExport = async (req, res, next) => {
       .replace(/\\/g, '/');
 
     const uploadsRoot = path.normalize(path.join(__dirname, '..', 'uploads'));
-    const absolutePath = path.normalize(path.join(__dirname, '..', relativePath));
+    const absolutePath = path.normalize(path.join(uploadsRoot, relativePath));
     const uploadsRootWithSep = uploadsRoot.endsWith(path.sep)
       ? uploadsRoot
       : `${uploadsRoot}${path.sep}`;

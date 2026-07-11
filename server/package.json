@@ -8,7 +8,11 @@
     "dev": "node --watch server.js",
     "db:migrate": "node db/migrate.js migrate",
     "db:seed": "node db/migrate.js seed",
-    "db:setup": "node db/migrate.js all"
+    "db:setup": "node db/migrate.js all",
+    "smoke:all-pages": "node scripts/smoke_all_pages.js",
+    "db:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\auto_postgres_backups.ps1",
+    "db:backup:dryrun": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\auto_postgres_backups.ps1 -DryRun",
+    "db:backup:register": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\auto_postgres_backups.ps1 -RegisterDailyTask -TaskTime 02:00"
   },
   "keywords": [],
   "author": "",

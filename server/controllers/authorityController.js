@@ -168,9 +168,9 @@ const getAssignedReports = async (req, res, next) => {
        LEFT JOIN LATERAL (
          SELECT
            COUNT(*)::INT AS escalation_count,
-           COUNT(*) FILTER (WHERE e.status = ANY($${params.length + 1}::text[]))::INT AS active_escalation_count,
-           COALESCE(BOOL_OR(e.is_overdue AND e.status = ANY($${params.length + 1}::text[])), FALSE) AS has_overdue,
-           MAX(e.escalated_at) FILTER (WHERE e.status = ANY($${params.length + 1}::text[])) AS latest_active_escalated_at,
+           COUNT(*) FILTER (WHERE e.status::text = ANY($${params.length + 1}::text[]))::INT AS active_escalation_count,
+           COALESCE(BOOL_OR(e.is_overdue AND e.status::text = ANY($${params.length + 1}::text[])), FALSE) AS has_overdue,
+           MAX(e.escalated_at) FILTER (WHERE e.status::text = ANY($${params.length + 1}::text[])) AS latest_active_escalated_at,
            (ARRAY_AGG(e.id ORDER BY e.escalated_at DESC))[1] AS latest_escalation_id,
            (ARRAY_AGG(e.status::text ORDER BY e.escalated_at DESC))[1] AS latest_escalation_status,
            (ARRAY_AGG(e.escalated_at ORDER BY e.escalated_at DESC))[1] AS latest_escalated_at,

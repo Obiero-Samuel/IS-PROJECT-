@@ -221,7 +221,7 @@ export default function OfficerPage() {
   const selectedMediaUrl = toPublicAssetUrl(selectedReport?.media_url || null);
 
   return (
-    <RequireAuth allowedRoles={["authority", "admin"]}>
+    <RequireAuth allowedRoles={["authority"]}>
       {/* Shared shell gives consistent header + navigation. */}
       <DashboardShell
         title="Officer Case Queue"

@@ -48,6 +48,15 @@ createdb -U postgres is_project_db
    ```
    The backend will be running at `http://localhost:5000`.
 
+### 2b. Database Backup Automation (Integrated)
+From `/server`, you can now run and schedule PostgreSQL backups:
+
+- `npm run db:backup:dryrun` → preview backup actions without writing files.
+- `npm run db:backup` → run one real backup now.
+- `npm run db:backup:register` → create/update daily Windows scheduled task at `02:00`.
+
+Backups are stored in `server/backups/db` and old backup archives are removed using the script retention setting.
+
 ### 3. Frontend Setup
 1. Navigate to `/client`:
    ```bash
